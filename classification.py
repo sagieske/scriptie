@@ -1,6 +1,7 @@
 import csv
 import sys
 import random
+import nltk
 
 class Main():
 
@@ -25,9 +26,10 @@ class Main():
 		INIT
 		"""
 		# Load tweets from file
-		self.initialize()
-		self.count_classes()
-		self.createSets()
+		#self.initialize()
+		#self.count_classes()
+		#self.createSets()
+		self.stemmer()
 
 	def initialize(self):
 		"""
@@ -73,6 +75,14 @@ class Main():
 		print "Total number of tweets: %i" % total
 		print "Total activity tweets: %i" % activity_count
 		print "Total non-activity tweets: %i" % nonactivity_count
+
+	def stemmer(self):
+		# USE FROG HERE? 
+		# open frog to do all stemming of every sentence? sentences aan elkaar plakken, in frog gooien en weer uit elkaar halen?
+		# TODO
+		sentence = "Ik kijk jij kijkt wij keken hij kijken"
+		tokens = nltk.word_tokenize(sentence)
+		print tokens
 	
 
 m = Main()
