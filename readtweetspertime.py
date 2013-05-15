@@ -2,6 +2,7 @@ import sys
 import time
 import math
 import re
+import os.path
 import operator
 from operator import itemgetter
 import itertools
@@ -91,32 +92,49 @@ def loadFile(filename,nr_tweets):
 	return array
 
 def printtoFile(dataset, filename):
+	"""
+	Prints dataset to file
+	input: dataset, filename
+	"""
+	# check if file exists
+	if( os.path.isfile(filename)):
+		# prompt user for overwriting
+		answer = raw_input("File exists. Overwrite? (y/n)\t")
+		# do not overwrite
+		if (answer.lower() != "y"):
+			return
+
+	# write to file
 	ofile  = open(filename, "wb")
 	writer = csv.writer(ofile, delimiter='\t', quotechar='"', quoting=csv.QUOTE_ALL)
 	for row in dataset:
 		writer.writerow(row)
+	print "Written to file."
 
 def loadFile3(filename, nr_tweets, total):
+	"""
+	Load file to gain requested tweets from file
+	input: filename, tweets required per date & time, total number of tweets
+	"""
 	DELIMITER = ","
 	with open(filename, 'rU') as open_file:
-		csv_reader = csv.reader(open_file, delimiter=DELIMITER)#, quotechar='"')
-		totalcounter = 0
-		count = 0
-		lasttime = 9
-		array = []
-		for i, row in enumerate(csv_reader):	
+		csv_reader = csv.reader(open_file, delimiter=DELIMITER)
+		# counters
+		totalcounter = 0	# total tweet counter
+		count = 0			# counter for tweets per time/date
+		lasttime = 9		# begin time		
+		array = []			# tweetarray
+		for i, row in enumerate(csv_reader):
+			# total tweets is reached	
 			if(totalcounter == total):
 				print "Done"
 				break
 			else:
 				# Only use rows with good start of tweet (digits)
 				if (len(row) == 5 and row[0].isdigit()):	
-					# get time	
-					# Only use rows with correct nr of elementss
+					# Only get tweets between correct time
 					time = int(row[2].split(" ")[1].split(":")[0])
-					# between good times
 					if (time >= 9 and time <= 18):
-						# same as last time, increase counter
 						if(lasttime == time):
 							count +=1
 							# only add if not total nr_tweets of time
@@ -125,13 +143,15 @@ def loadFile3(filename, nr_tweets, total):
 								totalcounter +=1
 							# new time
 						else:
-							#reset
+							# reset 
 							lasttime = time
 							count = 1
 							array.append(row)
 							totalcounter +=1
+				# Incorrect tweetline				
 				else:
 					pass
+
 	return array
 
 
