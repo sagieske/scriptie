@@ -1,12 +1,15 @@
 import csv
 import sys
+import random
 
 class Main():
 
 	# Lists for tweet and class
 	tweets = {}
 	tweet_class = {}
-	
+	trainSet = []
+	testSet = []
+
 	# Dictionary for class, classify unkown into non-activity
 	class_dict = {"Y": 0, "N": 1, "U": 1}
 
@@ -18,13 +21,17 @@ class Main():
 	data = csv.reader(open("2000test.csv", 'rU'), delimiter=DELIMITER)
 
 	def __init__(self):
-		# Load tweets from file
-		self.createSets()
-		self.count_classes()
-
-	def createSets(self):
 		"""
-		Creates training and test set
+		INIT
+		"""
+		# Load tweets from file
+		self.initialize()
+		self.count_classes()
+		self.createSets()
+
+	def initialize(self):
+		"""
+		Initializes tweet and class sets
 		"""
 		print "Initialize sets.."
 		# Create tweet and class lists
@@ -36,6 +43,18 @@ class Main():
 				# Get tweet and class 
 				self.tweets[i-1] = row[3]
 				self.tweet_class[i-1] = self.class_dict.get(row[5])
+
+	def createSets(self):
+		"""
+		Create training/test/validation set via indices 
+		"""
+		for i in range(1, 20):
+			# Test if random number is smaller than distribution for trainset
+			r_nr = random.random()
+			if (r_nr < self.distribution[0]):
+				self.trainSet.append(i)
+			else:
+				self.testSet.append(i)
 
 	
 	def count_classes(self):
