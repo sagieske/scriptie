@@ -29,7 +29,26 @@ def createSets(filename):
 			# Get tweet and class 
 			tweets[i-1] = row[3]
 			tweet_class[i-1] = class_dict.get(row[5])
-		
+
+	count_classes(tweet_class)
+	
+def count_classes(tweet_class):
+	"""
+	Counts and prints occurance of each class
+	"""
+	values = tweet_class.values()
+	total = len(values)
+	
+	# Count occurances of classes
+ 	activity_count = values.count(0)
+	nonactivity_count = values.count(1)
+
+	# Print
+	print ">> Statistics:"
+	print "Total number of tweets: %i" % total
+	print "Total activity tweets: %i" % activity_count
+	print "Total non-activity tweets: %i" % nonactivity_count
+	
 
 def main(argv):
 	"""
