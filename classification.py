@@ -2,12 +2,14 @@ import csv
 import sys
 import random
 import nltk
+import os
 
 class Main():
 
 	# Lists for tweet and class
 	tweets = {}
 	tweet_class = {}
+	corpus = {}
 	trainSet = []
 	testSet = []
 
@@ -29,7 +31,7 @@ class Main():
 		self.initialize()
 		self.count_classes()
 		self.createSets()
-		self.stemmer()
+		self.stemmer("Frog")
 
 	def initialize(self):
 		"""
@@ -78,13 +80,30 @@ class Main():
 		print "Total non-activity tweets: %i" % nonactivity_count
 		print "Total unknown-activity tweets: %i" % unknown_count
 
-	def stemmer(self):
+	def stemmer(self, mode):
 		# USE FROG HERE? 
 		# open frog to do all stemming of every sentence? sentences aan elkaar plakken, in frog gooien en weer uit elkaar halen?
-		# TODO
-		sentence = "Ik kijk jij kijkt wij keken hij kijken"
-		tokens = nltk.word_tokenize(sentence)
-		print tokens
+		#if(mode == "Frog"):
+		#	os.system("frog -t test.txt > frogtesting.txt")
+		counter = 0
+		for index in self.tweets:
+			if counter > 2:
+				break
+			tweet = self.tweets[index]	
+			tweetclass = self.tweet_class[index]		
+			
+			# Split into tokens	
+			tokens = nltk.word_tokenize(tweet)
+
+			for item in tokens:
+				activity, total = self.corpus.get(item, (0,0))
+				# Check for class				
+				if (tweetclass == 0):
+					self.corpus[item] = activity+1, total+1
+				else:
+					self.corpus[item] = activity, total+1
+
+			counter += 1
 	
 
 m = Main()
