@@ -3,6 +3,7 @@ import sys
 import random
 import nltk
 import os
+import operator
 
 class Main():
 
@@ -31,7 +32,7 @@ class Main():
 		self.initialize()
 		self.count_classes()
 		self.createSets()
-		self.stemmer("Frog")
+		self.createCorpus("Frog")
 
 	def initialize(self):
 		"""
@@ -80,7 +81,7 @@ class Main():
 		print "Total non-activity tweets: %i" % nonactivity_count
 		print "Total unknown-activity tweets: %i" % unknown_count
 
-	def stemmer(self, mode):
+	def createCorpus(self, mode):
 		# USE FROG HERE? 
 		# open frog to do all stemming of every sentence? sentences aan elkaar plakken, in frog gooien en weer uit elkaar halen?
 		#if(mode == "Frog"):
@@ -93,15 +94,22 @@ class Main():
 			tweetclass = self.tweet_class[index]		
 			
 			# Split into tokens	
-			tokens = nltk.word_tokenize(tweet)
+			#tokens = nltk.word_tokenize(tweet)
+			tokens = ['test', 'ja', 'test']
 
+			# add every token to corpus
 			for item in tokens:
-				activity, total = self.corpus.get(item, (0,0))
-				# Check for class				
-				if (tweetclass == 0):
-					self.corpus[item] = activity+1, total+1
+				# check class
+				if(tweetclass == 0):
+					addition = (1,1)
 				else:
-					self.corpus[item] = activity, total+1
+					addition = (0,1)
+
+				# check if in corpus
+				if item in self.corpus:
+					self.corpus[item] = tuple(map(operator.add, self.corpus[item], (addition)))
+				else:
+					self.corpus[item] = addition
 
 			counter += 1
 	
