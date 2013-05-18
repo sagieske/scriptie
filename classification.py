@@ -11,6 +11,7 @@ class Main():
 	tweets = {}
 	tweet_class = {}
 	corpus = {}
+	bigramcorpus = {}
 	trainSet = []
 	testSet = []
 
@@ -44,10 +45,11 @@ class Main():
 			# Ignores header
 			if(i != 0):
 			# TEMP, for testing only
-			#if (i < 20):
-				# Get tweet and class 
-				self.tweets[i-1] = row[3]
-				self.tweet_class[i-1] = self.class_dict.get(row[5])
+				if (i < 100):
+					# Get tweet and class 
+					self.tweets[i-1] = row[3]
+					self.tweet_class[i-1] = self.class_dict.get(row[5].upper())
+		print self.tweets[22]
 
 	def createSets(self):
 		"""
@@ -86,32 +88,48 @@ class Main():
 		# open frog to do all stemming of every sentence? sentences aan elkaar plakken, in frog gooien en weer uit elkaar halen?
 		#if(mode == "Frog"):
 		#	os.system("frog -t test.txt > frogtesting.txt")
-		counter = 0
 		for index in self.tweets:
-			if counter > 2:
-				break
 			tweet = self.tweets[index]	
 			tweetclass = self.tweet_class[index]		
 			
 			# Split into tokens	
-			#tokens = nltk.word_tokenize(tweet)
-			tokens = ['test', 'ja', 'test']
+			tokens = nltk.word_tokenize(tweet)
 
 			# add every token to corpus
-			for item in tokens:
+			for index, item in enumerate(tokens):
 				# check class
 				if(tweetclass == 0):
 					addition = (1,1)
 				else:
 					addition = (0,1)
 
+				# unigrams:
 				# check if in corpus
 				if item in self.corpus:
 					self.corpus[item] = tuple(map(operator.add, self.corpus[item], (addition)))
 				else:
 					self.corpus[item] = addition
 
-			counter += 1
-	
+				# bigrams:
+				if(index < len(tokens) -1):
+					tupleitem = item, tokens[index+1]
+					if tupleitem in self.bigramcorpus:
+						self.bigramcorpus[tupleitem] = tuple(map(operator.add, self.bigramcorpus[tupleitem], (addition)))
+					else:
+						self.bigramcorpus[tupleitem] = addition		
+			print self.bigramcorpus
+			#self.findHighest(self.bigramcorpus)
+
+
+	def findHighest(self,corpus):
+		value = 0
+		best = {}
+		for item in corpus:
+			value1, value2 = corpus[item]
+			if value1 > value:
+				value = value1
+				best = item
+		print value
+		print best
 
 m = Main()
