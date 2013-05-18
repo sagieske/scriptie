@@ -12,6 +12,7 @@ class Main():
 	tweet_class = {}
 	corpus = {}
 	bigramcorpus = {}
+	trigramcorpus = {}
 	trainSet = []
 	testSet = []
 
@@ -116,9 +117,15 @@ class Main():
 					if tupleitem in self.bigramcorpus:
 						self.bigramcorpus[tupleitem] = tuple(map(operator.add, self.bigramcorpus[tupleitem], (addition)))
 					else:
-						self.bigramcorpus[tupleitem] = addition		
-			print self.bigramcorpus
-			#self.findHighest(self.bigramcorpus)
+						self.bigramcorpus[tupleitem] = addition	
+
+				# trigrams:
+				if(index < len(tokens) -2):
+					tupleitem = item, tokens[index+1], tokens[index+2]
+					if tupleitem in self.trigramcorpus:
+						self.trigramcorpus[tupleitem] = tuple(map(operator.add, self.trigramcorpus[tupleitem], (addition)))
+					else:
+						self.trigramcorpus[tupleitem] = addition		
 
 
 	def findHighest(self,corpus):
