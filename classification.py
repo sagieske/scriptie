@@ -4,6 +4,8 @@ import random
 import nltk
 import os
 import operator
+import time
+
 
 class Main():
 
@@ -34,7 +36,9 @@ class Main():
 		self.initialize()
 		self.count_classes()
 		self.createSets()
-		self.createCorpus("Frog")
+		#self.createCorpus("Frog")
+		tweet = "eens even kijken hoe ik hier naar kijk bla &"
+ 		self.processTokens(tweet,"lemma")
 
 	def initialize(self):
 		"""
@@ -56,7 +60,7 @@ class Main():
 		"""
 		Create training/test/validation set via indices 
 		"""
-		for i in range(1, len(self.tweets)):
+		for i in range(0, len(self.tweets)):
 			# Test if random number is smaller than distribution for trainset
 			r_nr = random.random()
 			if (r_nr < self.distribution[0]):
@@ -85,6 +89,9 @@ class Main():
 		print "Total unknown-activity tweets: %i" % unknown_count
 
 	def createCorpus(self, mode):
+		"""
+		Create training corpus
+		"""
 		# USE FROG HERE? 
 		# open frog to do all stemming of every sentence? sentences aan elkaar plakken, in frog gooien en weer uit elkaar halen?
 		#if(mode == "Frog"):
@@ -105,6 +112,27 @@ class Main():
 					addition = (0,1)
 				self.addToCorpus(tokens, index, addition, 1)
 
+	def processTokens(self, tweet,mode):
+		if mode == "tk":
+			tokens = nltk.word_tokenize(tweet)
+		if mode == "lemma":
+			# TODO: VIA PORT is sneller ws
+			tokens = []
+			# print line to file
+			f = open('testcode.txt','w')
+			f.write(tweet)
+			f.close()
+			time.sleep(3)
+			# use frog
+			os.system("frog -t testcode.txt > frogtesting.txt")
+			# read from frog file
+			fo = open("frogtesting.txt", "r")
+			for line in fo:
+				if line != "\n":
+					newline = line.split("\t")
+					print newline[2]
+					tokens.append(newline[2])
+		return tokens
 
 	def addToCorpus(self,tokens, index, addition, mode):
 		"""
