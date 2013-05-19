@@ -103,29 +103,27 @@ class Main():
 					addition = (1,1)
 				else:
 					addition = (0,1)
+				self.addToCorpus(tokens, index, addition, 1)
 
-				# unigrams:
-				# check if in corpus
-				if item in self.corpus:
-					self.corpus[item] = tuple(map(operator.add, self.corpus[item], (addition)))
-				else:
-					self.corpus[item] = addition
 
-				# bigrams:
-				if(index < len(tokens) -1):
-					tupleitem = item, tokens[index+1]
-					if tupleitem in self.bigramcorpus:
-						self.bigramcorpus[tupleitem] = tuple(map(operator.add, self.bigramcorpus[tupleitem], (addition)))
-					else:
-						self.bigramcorpus[tupleitem] = addition	
+	def addToCorpus(self,tokens, index, addition, mode):
+		"""
+		adds items to corpus dependend of mode
+		input: list of tokens, index, addition for dict, n-grams
+		"""
+		# Create ngrams
+		if (index + mode <= len(tokens)):
+			tupleItem = (tokens[index],)
+			for i in range(index+1,index+mode):
+					tupleItem = tupleItem + (tokens[i],)
+			
+			# Add ngrams in dictionary with addition
+			if tupleItem in self.corpus:
+				self.corpus[tupleItem] = tuple(map(operator.add, self.corpus[tupleItem], (addition)))
+			else:
+				self.corpus[tupleItem] = addition	
 
-				# trigrams:
-				if(index < len(tokens) -2):
-					tupleitem = item, tokens[index+1], tokens[index+2]
-					if tupleitem in self.trigramcorpus:
-						self.trigramcorpus[tupleitem] = tuple(map(operator.add, self.trigramcorpus[tupleitem], (addition)))
-					else:
-						self.trigramcorpus[tupleitem] = addition		
+		print self.corpus
 
 
 	def findHighest(self,corpus):
