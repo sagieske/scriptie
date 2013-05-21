@@ -54,7 +54,7 @@ class Main():
 		#self.useFrog()
 		#self.readFrog()
 		#tweet = "eens even kijken hoe ik hier naar kijk bla &"
- 		self.processTokens('even uitproberen hoe ver we hier mee kunnen komen',"lemma")
+ 		self.processTokens('ik kijkte naar gekeken materiaal en brave braaf zwetende zweet bah! ?',"lemma")
 
 	def initialize(self):
 		"""
@@ -167,18 +167,34 @@ class Main():
 		if mode == "lemma":
 			# Start Frog Server
 			self.startFrogServer('start')
-			time.sleep(20)
+			# Wait for Frog to startup
+			time.sleep(15)
 			# Start Frog Client
 			frogclient = FrogClient('localhost',self.portnumber)
+			
+			# Process tweet
 			frogtweet = frogclient.process(tweet)
-			self.processFrogtweet(frogtweet)
+			tokens = self.processFrogtweet(frogtweet, 'pos')
+			print tokens
 
 			self.startFrogServer('stop')
 			tokens = nltk.word_tokenize(tweet)
 		return tokens
 
-	def processFrogtweet(self, frogtweet):
-		print frogtweet
+	def processFrogtweet(self, frogtweet, frogmode):	
+		"""
+		Process Frog information for requested items into token list
+		""" 
+		tokens = []
+		for word, lemma, morph, pos in frogtweet:
+			if(frogmode == 'word'):
+				tokens.append(word)
+			if(frogmode == 'lemma'):
+				tokens.append(lemma)
+			if(frogmode == 'pos'):
+				tokens.append(pos)
+		return tokens
+		
 
 	def startFrogServer(self, mode):
 		if(mode == 'start'):
