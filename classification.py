@@ -7,6 +7,9 @@ import operator
 import time
 import socket 
 from pynlpl.clients.frogclient import FrogClient
+import subprocess
+import signal
+
 
 
 class Main():
@@ -23,6 +26,9 @@ class Main():
 
 	totalPos = 0
 	totalNeg = 0
+	
+	# Portnumber for Frog
+	portnumber = 1200
 
 	# Dictionary for class, classify unkown into non-activity
 	class_dict = {"Y": 0, "N": 1, "U": 2}
@@ -46,9 +52,9 @@ class Main():
 		self.setCorpusWeights()
 		#self.printTweetsToText()
 		#self.useFrog()
-		self.readFrog()
+		#self.readFrog()
 		#tweet = "eens even kijken hoe ik hier naar kijk bla &"
- 		#self.processTokens(tweet,"lemma")
+ 		self.processTokens('even uitproberen hoe ver we hier mee kunnen komen',"lemma")
 
 	def initialize(self):
 		"""
@@ -60,14 +66,11 @@ class Main():
 			# Ignores header
 			if(i != 0):
 			# TEMP, for testing only
-				if (i > 1000 and i < 1500):
+				if (i > 1000 and i < 1020):
 					# Get tweet and class 
 					self.tweets[i-1000] = row[3]
 					self.tweet_class[i-1000] = self.class_dict.get(row[5].upper())
-		frogclient = FrogClient('localhost',1126)
-		for item in frogclient.process("Laten we kijken hoe we dit kunnen uittesten"):
-			print item
-
+	"""
 
 	def printTweetsToText(self):
 		print "writing"
@@ -98,6 +101,7 @@ class Main():
 				break
 		fo.close()
 		print tokens
+	"""
 
 	def createSets(self):
 		"""
@@ -161,23 +165,32 @@ class Main():
 		if mode == "tk":
 			tokens = nltk.word_tokenize(tweet)
 		if mode == "lemma":
-			# TODO: VIA PORT is sneller ws
-			tokens = []
-			# print line to file
-			f = open('testcode.txt','w')
-			f.write(tweet)
-			f.close()
-			time.sleep(3)
-			# use frog
-			os.system("frog -t testcode.txt > frogtesting.txt")
-			# read from frog file
-			fo = open("frogtesting.txt", "r")
-			for line in fo:
-				if line != "\n":
-					newline = line.split("\t")
-					print newline[2]
-					tokens.append(newline[2])
+			# Start Frog Server
+			self.startFrogServer('start')
+			time.sleep(20)
+			# Start Frog Client
+			frogclient = FrogClient('localhost',self.portnumber)
+			frogtweet = frogclient.process(tweet)
+			self.processFrogtweet(frogtweet)
+
+			self.startFrogServer('stop')
+			tokens = nltk.word_tokenize(tweet)
 		return tokens
+
+	def processFrogtweet(self, frogtweet):
+		print frogtweet
+
+	def startFrogServer(self, mode):
+		if(mode == 'start'):
+			print "start"
+			# TODO: still has new terminal open.
+			os.system("mate-terminal -e 'frog -S 1200'")
+		if(mode == 'stop'):
+			print "stop"
+			proc = subprocess.Popen(["pgrep", 'frog'], stdout=subprocess.PIPE) 
+			for pid in proc.stdout: 
+				os.kill(int(pid), signal.SIGTERM)
+
 
 	def addToCorpus(self,tokens, index, addition, mode):
 		"""
