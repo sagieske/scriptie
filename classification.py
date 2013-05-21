@@ -54,7 +54,7 @@ class Main():
 		#self.useFrog()
 		#self.readFrog()
 		#tweet = "eens even kijken hoe ik hier naar kijk bla &"
- 		self.processTokens('ik kijkte naar gekeken materiaal en brave braaf zwetende zweet bah! ?',"lemma")
+ 		#self.createTokens('ik kijkte naar gekeken materiaal en brave braaf zwetende zweet bah! ?',"frog lemma")
 
 	def initialize(self):
 		"""
@@ -139,6 +139,14 @@ class Main():
 		"""
 		Create training corpus
 		"""
+		if(mode == "Frog"):
+			# Start Frog Server
+			self.startFrogServer('start')
+			# Wait for Frog to startup
+			time.sleep(15)
+			# Start Frog Client
+			frogclient = FrogClient('localhost',self.portnumber)
+
 		# USE FROG HERE? 
 		# open frog to do all stemming of every sentence? sentences aan elkaar plakken, in frog gooien en weer uit elkaar halen?
 		#if(mode == "Frog"):
@@ -148,7 +156,7 @@ class Main():
 			tweetclass = self.tweet_class[index]		
 			
 			# Split into tokens	
-			tokens = nltk.word_tokenize(tweet)
+			tokens = self.createTokens(frogclient, tweet,"frog lemma")
 
 			# add every token to corpus
 			for index, item in enumerate(tokens):
@@ -161,24 +169,27 @@ class Main():
 					self.totalNeg += 1
 				self.addToCorpus(tokens, index, addition, 2)
 
-	def processTokens(self, tweet,mode):
-		if mode == "tk":
+		if(mode == "Frog"):
+			# Stop Server
+			self.startFrogServer('stop')
+
+	def createTokens(self,frogclient, tweet,mode):
+		"""
+		Creates tokens for corpus dependent of mode
+		"""
+		tokens = []
+		modelist = mode.split()
+		if modelist[0] == "tk":
+			print "tk"
 			tokens = nltk.word_tokenize(tweet)
-		if mode == "lemma":
-			# Start Frog Server
-			self.startFrogServer('start')
-			# Wait for Frog to startup
-			time.sleep(15)
-			# Start Frog Client
-			frogclient = FrogClient('localhost',self.portnumber)
+		if modelist[0] == "frog":
+			print "frog"
+
 			
 			# Process tweet
 			frogtweet = frogclient.process(tweet)
-			tokens = self.processFrogtweet(frogtweet, 'pos')
-			print tokens
+			tokens = self.processFrogtweet(frogtweet, modelist[1])
 
-			self.startFrogServer('stop')
-			tokens = nltk.word_tokenize(tweet)
 		return tokens
 
 	def processFrogtweet(self, frogtweet, frogmode):	
@@ -193,6 +204,9 @@ class Main():
 				tokens.append(lemma)
 			if(frogmode == 'pos'):
 				tokens.append(pos)
+			if(frogmode == 'wordpos'):
+				token = (word, pos)
+				tokens.append(token)
 		return tokens
 		
 
