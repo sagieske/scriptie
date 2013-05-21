@@ -5,6 +5,8 @@ import nltk
 import os
 import operator
 import time
+import socket 
+from pynlpl.clients.frogclient import FrogClient
 
 
 class Main():
@@ -13,10 +15,14 @@ class Main():
 	tweets = {}
 	tweet_class = {}
 	corpus = {}
+	corpus_weights = {}
 	bigramcorpus = {}
 	trigramcorpus = {}
 	trainSet = []
 	testSet = []
+
+	totalPos = 0
+	totalNeg = 0
 
 	# Dictionary for class, classify unkown into non-activity
 	class_dict = {"Y": 0, "N": 1, "U": 2}
@@ -36,9 +42,13 @@ class Main():
 		self.initialize()
 		self.count_classes()
 		self.createSets()
-		#self.createCorpus("Frog")
-		tweet = "eens even kijken hoe ik hier naar kijk bla &"
- 		self.processTokens(tweet,"lemma")
+		self.createCorpus("Frog")
+		self.setCorpusWeights()
+		#self.printTweetsToText()
+		#self.useFrog()
+		self.readFrog()
+		#tweet = "eens even kijken hoe ik hier naar kijk bla &"
+ 		#self.processTokens(tweet,"lemma")
 
 	def initialize(self):
 		"""
@@ -50,11 +60,44 @@ class Main():
 			# Ignores header
 			if(i != 0):
 			# TEMP, for testing only
-				if (i < 100):
+				if (i > 1000 and i < 1500):
 					# Get tweet and class 
-					self.tweets[i-1] = row[3]
-					self.tweet_class[i-1] = self.class_dict.get(row[5].upper())
-		print self.tweets[22]
+					self.tweets[i-1000] = row[3]
+					self.tweet_class[i-1000] = self.class_dict.get(row[5].upper())
+		frogclient = FrogClient('localhost',1126)
+		for item in frogclient.process("Laten we kijken hoe we dit kunnen uittesten"):
+			print item
+
+
+	def printTweetsToText(self):
+		print "writing"
+		f = open('testcode.txt','w')
+		for index in self.tweets:
+			if(index < 100):
+				f.write(self.tweets[index]+ '\n')
+			else:
+				break
+		f.close()
+
+	def useFrog(self):
+		now= time.time()
+		print "START frog"
+		os.system("frog -n -t testcode.txt -o frogtesting.txt")
+		print "DONE frog"
+		timetaken = time.time() - now
+		print "time taken: %d" %timetaken
+
+	def readFrog(self):
+		fo = open("frogtesting.txt", "r")
+		tokens = []
+		for line in fo:
+			if line != "\n":
+				newline = line.split("\t")
+				tokens.append(newline)
+			else:
+				break
+		fo.close()
+		print tokens
 
 	def createSets(self):
 		"""
@@ -71,7 +114,7 @@ class Main():
 	
 	def count_classes(self):
 		"""
-		Counts and prints occurance of each class
+		Counts and prings occurance of each class
 		"""
 		values = self.tweet_class.values()
 		total = len(values)
@@ -107,10 +150,12 @@ class Main():
 			for index, item in enumerate(tokens):
 				# check class
 				if(tweetclass == 0):
-					addition = (1,1)
+					addition = (1,0)
+					self.totalPos += 1
 				else:
 					addition = (0,1)
-				self.addToCorpus(tokens, index, addition, 1)
+					self.totalNeg += 1
+				self.addToCorpus(tokens, index, addition, 2)
 
 	def processTokens(self, tweet,mode):
 		if mode == "tk":
@@ -151,18 +196,41 @@ class Main():
 			else:
 				self.corpus[tupleItem] = addition	
 
-		print self.corpus
+	def setCorpusWeights(self):
+		"""
+		Set weights for words. Remove singular occurances.
+		"""
+		for key,value in self.corpus.iteritems():
+			value_pos, value_neg = value
 
+			# Token occures more than once
+			if (sum(value) >1):				
+				# Calculate positive and negative influence
+				positive = 0
+				negative = 0
+				if (value_pos > 0):
+					positive = value_pos/float(self.totalPos)
+				if (value_neg > 0):
+					negative = value_neg/float(self.totalNeg)
+				valueweight = positive - negative
+				# Set value
+				if (valueweight != 0):
+					self.corpus_weights[key] = valueweight
+		self.findHighest(self.corpus_weights, 10)
+		self.findLowest(self.corpus_weights, 10)
 
-	def findHighest(self,corpus):
-		value = 0
-		best = {}
-		for item in corpus:
-			value1, value2 = corpus[item]
-			if value1 > value:
-				value = value1
-				best = item
-		print value
-		print best
+	def findHighest(self,corpus, nr):
+		"""
+		Print out max <nr> of corpus
+		"""
+		topCorpus = dict(sorted(corpus.iteritems(), key=operator.itemgetter(1), reverse=True)[:nr])
+		print topCorpus
+
+	def findLowest(self,corpus, nr):
+		"""
+		Print out min <nr> of corpus
+		"""
+		topCorpus = dict(sorted(corpus.iteritems(), key=operator.itemgetter(1), reverse=False)[:nr])
+		print topCorpus
 
 m = Main()
