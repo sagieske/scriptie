@@ -67,9 +67,11 @@ class Main():
 			if(i != 0):
 			# TEMP, for testing only
 				if (i > 1000 and i < 1020):
-					# Get tweet and class 
-					self.tweets[i-1000] = row[3]
-					self.tweet_class[i-1000] = self.class_dict.get(row[5].upper())
+					# Only add if class is known! for testing
+					if (self.class_dict.get(row[5].upper()) is not None):
+						# Get tweet and class 
+						self.tweets[i-1000] = row[3]
+						self.tweet_class[i-1000] = self.class_dict.get(row[5].upper())
 	"""
 
 	def printTweetsToText(self):
