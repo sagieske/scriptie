@@ -9,7 +9,13 @@ import socket
 from pynlpl.clients.frogclient import FrogClient
 import subprocess
 import signal
+import math
 
+"""
+TODO:
+- combinations of unigram/POStag etc
+- easy way to not start up Frog everytime for testing
+"""
 
 
 class Main():
@@ -19,6 +25,7 @@ class Main():
 	tweet_class = {}
 	corpus = {}
 	corpus_weights = {}
+	corpus_weights_test = {}
 	bigramcorpus = {}
 	trigramcorpus = {}
 	trainSet = []
@@ -66,44 +73,12 @@ class Main():
 			# Ignores header
 			if(i != 0):
 			# TEMP, for testing only
-				if (i > 1000 and i < 1020):
+				if (i > 1000 and i < 1400):
 					# Only add if class is known! for testing
 					if (self.class_dict.get(row[5].upper()) is not None):
 						# Get tweet and class 
 						self.tweets[i-1000] = row[3]
 						self.tweet_class[i-1000] = self.class_dict.get(row[5].upper())
-	"""
-
-	def printTweetsToText(self):
-		print "writing"
-		f = open('testcode.txt','w')
-		for index in self.tweets:
-			if(index < 100):
-				f.write(self.tweets[index]+ '\n')
-			else:
-				break
-		f.close()
-
-	def useFrog(self):
-		now= time.time()
-		print "START frog"
-		os.system("frog -n -t testcode.txt -o frogtesting.txt")
-		print "DONE frog"
-		timetaken = time.time() - now
-		print "time taken: %d" %timetaken
-
-	def readFrog(self):
-		fo = open("frogtesting.txt", "r")
-		tokens = []
-		for line in fo:
-			if line != "\n":
-				newline = line.split("\t")
-				tokens.append(newline)
-			else:
-				break
-		fo.close()
-		print tokens
-	"""
 
 	def createSets(self):
 		"""
@@ -158,7 +133,7 @@ class Main():
 			tweetclass = self.tweet_class[index]		
 			
 			# Split into tokens	
-			tokens = self.createTokens(frogclient, tweet,"frog lemma")
+			tokens = self.createTokens(frogclient, tweet,"frog word")
 
 			# add every token to corpus
 			for index, item in enumerate(tokens):
@@ -169,7 +144,7 @@ class Main():
 				else:
 					addition = (0,1)
 					self.totalNeg += 1
-				self.addToCorpus(tokens, index, addition, 2)
+				self.addToCorpus(tokens, index, addition, 3)
 
 		if(mode == "Frog"):
 			# Stop Server
@@ -185,37 +160,41 @@ class Main():
 			print "tk"
 			tokens = nltk.word_tokenize(tweet)
 		if modelist[0] == "frog":
-			print "frog"
-
-			
+			#print "frog"
 			# Process tweet
-			frogtweet = frogclient.process(tweet)
-			tokens = self.processFrogtweet(frogtweet, modelist[1])
+	 		# TODO: test is lower
+			frogtweet = frogclient.process(tweet.lower())
+			tokens = self.processFrogtweet(tweet.lower(), frogtweet, modelist[1])
 
 		return tokens
 
-	def processFrogtweet(self, frogtweet, frogmode):	
+	def processFrogtweet(self, tweet, frogtweet, frogmode):	
 		"""
 		Process Frog information for requested items into token list
 		""" 
 		tokens = []
-		for word, lemma, morph, pos in frogtweet:
-			if(frogmode == 'word'):
-				tokens.append(word)
-			if(frogmode == 'lemma'):
-				tokens.append(lemma)
-			if(frogmode == 'pos'):
-				tokens.append(pos)
-			if(frogmode == 'wordpos'):
-				token = (word, pos)
-				tokens.append(token)
+
+		for test in frogtweet:
+			# frog sometimes contains tuple of None
+			if (None in test):
+				pass
+			else:
+				word, lemma, morph, pos = test
+				if(frogmode == 'word'):
+					tokens.append(word)
+				if(frogmode == 'lemma'):
+						tokens.append(lemma)
+				if(frogmode == 'pos'):
+					tokens.append(pos)
+				if(frogmode == 'wordpos'):
+					token = (word, pos)
+					tokens.append(token)
 		return tokens
 		
 
 	def startFrogServer(self, mode):
 		if(mode == 'start'):
 			print "start"
-			# TODO: still has new terminal open.
 			os.system("mate-terminal -e 'frog -S 1200'")
 		if(mode == 'stop'):
 			print "stop"
@@ -245,6 +224,7 @@ class Main():
 		"""
 		Set weights for words. Remove singular occurances.
 		"""
+		counter = 0
 		for key,value in self.corpus.iteritems():
 			value_pos, value_neg = value
 
@@ -261,21 +241,64 @@ class Main():
 				# Set value
 				if (valueweight != 0):
 					self.corpus_weights[key] = valueweight
+
+				else:
+					counter += 1
+		self.scaleCorpusWeights()
+
+
+	def scaleCorpusWeights(self):
+		print "scaling"
+
+		oldMax = max(self.corpus_weights.iteritems(), key=operator.itemgetter(1))[1]
+		oldMin = min(self.corpus_weights.iteritems(), key=operator.itemgetter(1))[1]
+		print "scaling from [%f,%f] to [-1,1]" %(float(oldMax),float(oldMin))
+		newMin = float(-1.0)
+		newMax = float(1.0)
+		
+		for key in self.corpus_weights:
+			oldValue = float(self.corpus_weights[key])
+			newValue = (((oldValue - oldMin) * (newMax - newMin)) / (oldMax - oldMin)) + newMin
+			self.corpus_weights[key] = newValue
+			if newValue < 0:
+				print newValue
+
 		self.findHighest(self.corpus_weights, 10)
-		self.findLowest(self.corpus_weights, 10)
+		self.findLowest(self.corpus_weights, 10)		
+		self.createNewCorpusWeights()
+
+	def createNewCorpusWeights(self):
+		counter =0
+		counter5 =0
+		counter6 = 0
+		for key in self.corpus_weights:
+			value =  self.corpus_weights[key]
+			if (value > 0.5 or value < -0.5):
+				self.corpus_weights_test[key] = self.corpus_weights[key]
+
+		print len(self.corpus_weights)
+		print len(self.corpus_weights_test)
+
+		#self.corpus_weights.update({n: 2 * my_dict[n] for n in my_dict.keys()})
 
 	def findHighest(self,corpus, nr):
 		"""
 		Print out max <nr> of corpus
 		"""
 		topCorpus = dict(sorted(corpus.iteritems(), key=operator.itemgetter(1), reverse=True)[:nr])
-		print topCorpus
+		for item in topCorpus:
+			value = topCorpus[item]
+			print "(%s, %s, %s) : %f" % (item[0], item[1], item[2], value)
+		#print topCorpus
 
 	def findLowest(self,corpus, nr):
 		"""
 		Print out min <nr> of corpus
 		"""
 		topCorpus = dict(sorted(corpus.iteritems(), key=operator.itemgetter(1), reverse=False)[:nr])
-		print topCorpus
+		for item in topCorpus:
+			value = topCorpus[item]
+			print "(%s, %s, %s) : %f" % (item[0], item[1], item[2], value)
+		#print topCorpus
 
 m = Main()
