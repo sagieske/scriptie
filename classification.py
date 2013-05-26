@@ -9,7 +9,8 @@ import subprocess									# used for calling Frog in new terminal
 import signal										# used for calling Frog in new terminal
 import math	 
 import pickle										# write and load list to file
-import nltk.stem as Stemmer							# used for stemmer
+import nltk										# used for stemmer
+from preprocessing import Preprocessing
 
 """
 TODO:
@@ -51,6 +52,11 @@ class Main(object):
 		"""
 		INIT
 		"""
+		#test.tokenize()
+		#test.tokenize_str()
+		#test.lemmmatization("lemma")
+		#test.lemmatization_str()
+		"""
 		self.initialize(mode)
 
 		self.count_classes()
@@ -59,6 +65,11 @@ class Main(object):
 		self.scaleCorpusWeights()
 
 		self.bagOfWords = self.corpus_weights.keys()
+		"""
+	def test(self):
+		array = ["laten we hier een test van maken en het uittesten", "dit is een kat 90 3!? rara wat gaat hier gebeuren of is het al gebeurd"]
+		test222 = ["hyuh dit kan nie tkloppen", "dit is zo vreemd, doet de terminal het niet?"]
+		test2 = Preprocessing("token --debug", array)
 
 
 	def initialize(self, mode):
@@ -355,45 +366,9 @@ class Main(object):
 			value = topCorpus[item]
 			print "(%s, %s) : %f" % (item[0], item[1], value)
 		#print topCorpus
-"""
-# The docstring for a class should summarize its behavior and list the public methods and instance variables
-# preproccessing: process all tweets in particular way, several functions for severall preprocessing
-# input: Mode of preproccessing, tweets array
-"""
 
-class Preprocessing(object):
-	"""
-	Class for preprocessing tweets
-	blablaballa etc
 
-	"""
-	stemmed_tweets_array = []
 
-	def __init__(self, mode, tweetarray):
-		"""	Initialize tweetarray for use"""
-		self.tweetarray = tweetarray
-		self.mode = mode
-
-	def stemming_str(self):
-		for item in self.stemmed_tweets_array:
-			print item
-
-	def stemming(self):
-		""" Stem all tweets given to object and set to array """
-		for item in self.tweetarray:
-			stemmed_tweet = self.stem_tweet(item)		
-			self.stemmed_tweets_array.append(stemmed_tweet)
-
-	def stem_tweet(self, tweet):
-		""" Stem tweet string and return array of stemmed words """
-		stemmer = Stemmer.SnowballStemmer('dutch')
-		stemmed_tweet = stemmer.stem(tweet)
-		stemmed_tweet = stemmed_tweet.split()
-		return stemmed_tweet
-		
-test = Preprocessing("test", ["Dit is een tweet die uitgeprobeerd gaat worden", "test dit testte even kijken"])
-test.stemming()
-test.stemming_str()
-
-#m = Main("frog lemma")
+m = Main("frog lemma")
+m.test()
 #m = Main("frogdb lemma")
