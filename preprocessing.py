@@ -32,17 +32,18 @@ class Preprocessing(object):
 		"""	Initialize tweetarray for use"""
 		self.tweetarray = tweetarray
   		self.debug = "--debug" in mode
+  		self.dump = "--write" in mode
 		self.mode = re.sub(r' --(\S+)', r'', mode)
 
-
-		print "** Preprocessing with MODE: %s, DEBUG: %s" % (self.mode, self.debug)
+		print "** Preprocessing with MODE: %s\n   DEBUG: %s\n   WRITE TO FILE: %s" % (self.mode, self.debug, self.dump)
 		self.preprocess_tweets()
 
 	def preprocess_tweets(self):
+		"""	Call functions to process tweets according to mode"""
 		mode_args = self.mode.split()
 		if("stem" in mode_args):
 			self.stemming()
-			self.stemming_str()
+			self.stemming_str()				
 		if("token" in mode_args):
 			self.tokenize()
 			self.tokenize_str()
@@ -52,6 +53,9 @@ class Preprocessing(object):
 				self.lemmatized_str()
 			if("pos" in mode_args):
 				self.pos_str()
+
+		if ( self.dump ):
+			self.write_all_to_file()
 				
 	def stemming_str(self):
 		print ">> Stemmed:"
@@ -80,7 +84,6 @@ class Preprocessing(object):
 		if (debug):
 			try:
 				self.read_from_file(self.DEBUG_STEM, "stem")
-				self.stemming_str()
 			except:
 				print "! Error in reading from file debug.txt. Redo stemming"
 				debug = False
@@ -103,7 +106,6 @@ class Preprocessing(object):
 		if (debug):
 			try:
 				self.read_from_file(self.DEBUG_TOKEN, "token")
-				self.stemming_str()
 			except:
 				print "! Error in reading from file debug.txt. Redo tokenization"
 				debug = False
@@ -118,11 +120,9 @@ class Preprocessing(object):
 		if (debug):
 			try:
 				if( "lemma" in self.mode ):
-					self.read_from_file(self.DEBUG_LEMMA, frogmode)
-					self.pos_str()
+					self.read_from_file(self.DEBUG_LEMMA, "lemma")
 				if( "pos" in self.mode ):
-					self.read_from_file(self.DEBUG_POS, frogmode)
-					self.lemmatized_str()
+					self.read_from_file(self.DEBUG_POS, "pos")
 			except:
 				print "! Error in reading from file debug.txt. Redo frogtokens"
 				debug = False
@@ -176,18 +176,18 @@ class Preprocessing(object):
 					tokenspos.append(pos)
 		return (tokensword, tokenslemma, tokenspos)
 
-	def read_from_file(self, filename):
+	def read_from_file(self, filename, frogmode):
 		"""	Load array from file """
 		f = file(filename, "r")
 
 		# Load into correct array
-		if ( "stem" in self.mode):
+		if ( "stem" in frogmode):
 			self.stemmed_tweets_array = pickle.load(f)
-		if ( "token" in self.mode):
+		if ( "token" in frogmode):
 			self.tokenized_tweets_array = pickle.load(f)
-		if ( "pos" in self.mode): 
+		if ( "pos" in frogmode): 
 			self.pos_tweets_array = pickle.load(f)
-		if ( "lemma" in self.mode):
+		if ( "lemma" in frogmode):
 			self.lemmatized_tweets_array = pickle.load(f)
 
 	def write_to_file(self, filename, array):
@@ -195,3 +195,13 @@ class Preprocessing(object):
 		f = file(filename, "w")
 		pickle.dump(array, f)
 
+	def write_all_to_file(self):
+		"""	Dumps all filled arrays to file """
+		if ( self.stemmed_tweets_array ):
+			self.write_to_file(self.DEBUG_STEM, self.stemmed_tweets_array)
+		if ( self.tokenized_tweets_array ):
+			self.write_to_file(self.DEBUG_TOKEN, self.tokenized_tweets_array)
+		if ( self.lemmatized_tweets_array ):
+			self.write_to_file(self.DEBUG_LEMMA, self.lemmatized_tweets_array)
+		if ( self.pos_tweets_array ):
+			self.write_to_file(self.DEBUG_POS, self.pos_tweets_array)
