@@ -36,7 +36,7 @@ class Main(object):
 	stemmed_tweets_array = []
 	tokenized_tweets_array = []
 	pos_tweets_array = []
-	lemma_tweets_array = []
+	lemmatized_tweets_array = []
 
 	# Debug files
 	DEBUG_SETS = "debug_sets.txt"
@@ -50,7 +50,7 @@ class Main(object):
 		self.initialize()
 		self.preprocess_tweets()
 		self.create_sets()
-		self.print_sets()
+		#self.print_sets()
 		self.count_classes()
 
 		# Dump sets
@@ -61,7 +61,13 @@ class Main(object):
 			self.write_to_file(self.DEBUG_SETS, totallist)
 		b = BagOfWords(self.stemmed_tweets_array, self.tweet_class, self.trainset)
 		b.create_corpus(2)
+		bow2= b.bow_partial(nr=10)
+		for index in range(0,50):
+			self.tweet_to_vector(self.stemmed_tweets_array[index],bow2)
+		
 
+		#b2 = BagOfWords(self.lemmatized_tweets_array, self.tweet_class, self.trainset)
+		#b2.create_corpus(2)
 
 	def initialize(self):
 		""" Initializes tweet and class sets """
@@ -73,7 +79,7 @@ class Main(object):
 			else:
 			# TEMP, for testing only
 				begin = 1000
-				end = 1200
+				end = 1500
 				if (i >= begin and i <= end):
 					# TEMP, Only add if class is known! for testing only
 					if (self.class_dict.get(row[5].upper()) is not None):
@@ -81,7 +87,6 @@ class Main(object):
 						self.tweets[i-begin] = row[3]
 						self.tweet_class[i-begin] = self.class_dict.get(row[5].upper())
 
-		print self.tweet_class
 
 	def preprocess_tweets(self):
 		""" Process tweets according to mode and set arrays """
@@ -94,7 +99,7 @@ class Main(object):
 		if ( "pos" in self.mode): 
 			self.pos_tweets_array = processObject.pos_tweets_array
 		if ( "lemma" in self.mode):
-			self.lemma_tweets_array = processObject.lemmatized_tweets_array
+			self.lemmatized_tweets_array = processObject.lemmatized_tweets_array
 
 	def create_sets(self):
 		""" Create training/test/validation set via indices """
@@ -153,6 +158,12 @@ class Main(object):
 		print "Total non-activity tweets: %i" % nonactivity_count
 		print "Total unknown-activity tweets: %i" % unknown_count
 
+	def tweet_to_vector(self, tweet_token, bow):
+		""" Convert tweet to vector"""
+		tweetstring = ' '.join(tweet_token)
+		vec = [ (' '.join(x) in tweetstring) for x in bow]
+
 
 # call main with mode
 m = Main("frog lemma pos stem token --debug")
+#m.tweet_to_vector(['dit','even','uittesten','dan', 'maar'], {'dit': 1, 'even': 2, 'dacht':3, ('dit','even'):4})

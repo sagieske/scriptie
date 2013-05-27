@@ -11,13 +11,19 @@ class BagOfWords(object):
 	tokenarray = {}
 	tweet_classes = {}
 	corpus = {}
-	corpus_weights = {}
+	bow = {}
 
 	totalPos = 0
 	totalNeg = 0
 
+	# Ranges for scaling
 	MIN_RANGE = -1
 	MAX_RANGE = 1
+
+	# Borderweights for bow
+	POS_BORDER = 0.1
+	NEG_BORDER = -0.1
+
 
 	def __init__(self, total_tokenarray, total_tweetclasses, trainset):
 		""" Initialize arrays according to trainset"""
@@ -32,8 +38,8 @@ class BagOfWords(object):
 			tweetclass = self.tweet_classes[key]
 			self.add_tokens_to_corpus(tokens, tweetclass, ngramsize)
 		self.setCorpusWeights()
-		self.findHighest(self.corpus_weights, 10)
-		self.findLowest(self.corpus_weights, 10)
+		self.find_highest(self.bow, 10)
+		self.find_lowest(self.bow, 10)
 		
 	def add_tokens_to_corpus(self,tokens,tweetclass, ngramsize):
 		""" add every token to corpus accoding to class"""
@@ -60,7 +66,6 @@ class BagOfWords(object):
 
 	def setCorpusWeights(self):
 		""" Set weights for words. Remove singular occurances. """
-		counter = 0
 		for key,value in self.corpus.iteritems():
 			value_pos, value_neg = value
 
@@ -76,53 +81,76 @@ class BagOfWords(object):
 
 				valueweight =(positive - negative)
 				if (valueweight != 0):
-					self.corpus_weights[key] = math.copysign(math.pow(math.fabs(valueweight),2), valueweight)
-				else:
-					counter += 1
+					self.bow[key] = valueweight
+					# TODO: problem with smoothing of weights?!
+					#self.bow[key] = math.copysign(math.pow(math.fabs(valueweight),2), valueweight)
+
 		self.scaleCorpusWeights()
 
 	def scaleCorpusWeights(self):
 		""" Scale weights of corpus to [MIN_RANGE, MAX_RANGE] """
 
-		oldMax = max(self.corpus_weights.iteritems(), key=operator.itemgetter(1))[1]
-		oldMin = min(self.corpus_weights.iteritems(), key=operator.itemgetter(1))[1]
+		oldMax = float(max(self.bow.iteritems(), key=operator.itemgetter(1))[1])
+		print oldMax
+		oldMin = float(min(self.bow.iteritems(), key=operator.itemgetter(1))[1])
 
 		if(oldMin == oldMax):
 			print "! No scaling, minimum is same as maximum (%d)" %oldMin
 		else:
-			print "scaling from [%f,%f] to [%f,%f]" %(float(oldMax),float(oldMin), self.MIN_RANGE, self.MAX_RANGE)
+			print "scaling from [%f,%f] to [%f,%f]" %(float(oldMin),float(oldMax), self.MIN_RANGE, self.MAX_RANGE)
 			# Set new range
 			newMin = float(self.MIN_RANGE)
 			newMax = float(self.MAX_RANGE)
 		
-			# Calculate new values
 			delkeys = []
-			for key in self.corpus_weights:
-				oldValue = float(self.corpus_weights[key])
+			for key in self.bow:
+				oldValue = float(self.bow[key])
 				newValue = (((oldValue - oldMin) * (newMax - newMin)) / (oldMax - oldMin)) + newMin
-				if(newValue < 0.25 and newValue > -0.25):
+				if(newValue < self.POS_BORDER and newValue > self.NEG_BORDER):
 					delkeys.append(key)
-				else:	
-					self.corpus_weights[key] = newValue
+				else:
+					self.bow[key] = newValue
 
+			# Deletion of keys
 			for key in delkeys:
-				del self.corpus_weights[key]
+				del self.bow[key]
 
-	def findHighest(self,corpus, nr):
+	def bow_partial(self, **kwargs):
+		""" Select part of Bag of Words and return dict """
+		partial = {}
+
+		nr = kwargs.get('nr',len(self.bow))
+		min_border = kwargs.get('min_border',0)
+		max_border = kwargs.get('max_border',0)
+			
+		positive = dict(sorted(self.bow.iteritems(), key=operator.itemgetter(1), reverse=True)[:nr])
+		for key in positive:
+			if ( positive[key] > max_border):
+				partial[key] = positive[key]
+
+		negative = dict(sorted(self.bow.iteritems(), key=operator.itemgetter(1), reverse=False)[:nr])
+		for key in negative:
+			if ( negative[key] < min_border):
+				partial[key] = negative[key]
+
+		return partial
+
+	# TODO: TUPLE PRINTING!
+	def find_highest(self,corpus, nr):
 		""" Print out max <nr> of corpus """
 		print ">> %d max of corpus" %nr
 		topCorpus = dict(sorted(corpus.iteritems(), key=operator.itemgetter(1), reverse=True)[:nr])
 		for item in topCorpus:
 			value = topCorpus[item]
-			print "(%s, %s) : %f" % (item[0], item[1], value)
+			print "(%s) : %f" % (item[0], value)
 
-	def findLowest(self,corpus, nr):
+	def find_lowest(self,corpus, nr):
 		""" Print out min <nr> of corpus """
 		print ">> %d min of corpus" %nr
 		topCorpus = dict(sorted(corpus.iteritems(), key=operator.itemgetter(1), reverse=False)[:nr])
 		for item in topCorpus:
 			value = topCorpus[item]
-			print "(%s, %s) : %f" % (item[0], item[1], value)
+			print "(%s) : %f" % (item[0], value)
 
 
 #b = BagOfWords([["test", "nee", "hello"],["nla", "wfr" , "gh", "sfe"], ["a", "asdf", "sdfsd"],["a", "asdf", "sdfsd"]], {0: 1, 1: 0, 2: 0, 3: 0}, [0,2,3])
