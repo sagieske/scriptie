@@ -7,8 +7,8 @@ import signal										# used for calling Frog in new terminal
 import math	 
 import pickle										# write and load list to file
 import nltk											# used for stemmer
-import re
-import time
+import re											# used for regex
+import time											# used for sleep
 
 class Preprocessing(object):
 	"""
@@ -21,58 +21,65 @@ class Preprocessing(object):
 	DEBUG_TOKEN = "debug_token.txt"
 	DEBUG_LEMMA = "debug_lemma.txt"
 	DEBUG_POS = "debug_pos.txt"
+
 	PORTNUMBER = 1150	# PORTNUMBER for Frog
 
+	tweets = {}
 	stemmed_tweets_array = []
 	tokenized_tweets_array = []
 	lemmatized_tweets_array = []
 	pos_tweets_array = []
 
-	def __init__(self, mode, tweetarray):
-		"""	Initialize tweetarray for use"""
-		self.tweetarray = tweetarray
+	def __init__(self, mode, tweetlist):
+		"""	Initialize tweets for use"""
+		self.tweets = tweetlist
   		self.debug = "--debug" in mode
   		self.dump = "--write" in mode
 		self.mode = re.sub(r' --(\S+)', r'', mode)
 
-		print "** Preprocessing with MODE: %s\n   DEBUG: %s\n   WRITE TO FILE: %s" % (self.mode, self.debug, self.dump)
-		self.preprocess_tweets()
+
+		#self.preprocess_tweets()
 
 	def preprocess_tweets(self):
 		"""	Call functions to process tweets according to mode"""
+		print "** Preprocessing with MODE: %s\n   DEBUG: %s\n   WRITE TO FILE: %s" % (self.mode, self.debug, self.dump)
 		mode_args = self.mode.split()
 		if("stem" in mode_args):
 			self.stemming()
-			self.stemming_str()				
+			#self.stemming_str()				
 		if("token" in mode_args):
 			self.tokenize()
-			self.tokenize_str()
+			#self.tokenize_str()
 		if("frog" in mode_args):
 			self.frogtokens()
-			if("lemma" in mode_args):
-				self.lemmatized_str()
-			if("pos" in mode_args):
-				self.pos_str()
+			#if("lemma" in mode_args):
+			#	self.lemmatized_str()
+			#if("pos" in mode_args):
+			#	self.pos_str()
 
 		if ( self.dump ):
 			self.write_all_to_file()
 				
 	def stemming_str(self):
+		""" Print out stemmed_tweets_array as string"""
 		print ">> Stemmed:"
 		for item in self.stemmed_tweets_array:
 			print '- ' + '|'.join(item)
 
 	def tokenize_str(self):
+		""" Print out tokenized_tweets_array as string"""
 		print ">> Tokenized:"
 		for item in self.tokenized_tweets_array:
 			print '- ' + '|'.join(item)
 
 	def lemmatized_str(self):
+		""" Print out lemmatized_tweets_array as string"""
 		print ">> Lemmatized:"
 		for item in self.lemmatized_tweets_array:
 			print '- ' + '|'.join(item)
 
 	def pos_str(self):
+		""" Print out pos_tweets_array as string"""
 		print ">> POS tagged:"
 		for item in self.pos_tweets_array:
 			print '- ' + '|'.join(item)
@@ -88,8 +95,10 @@ class Preprocessing(object):
 				print "! Error in reading from file debug.txt. Redo stemming"
 				debug = False
 		if (not debug):
-			for item in self.tweetarray:
-				stemmed_tweet = self.stem_tweet(item)		
+			for index in self.tweets:
+				# Snowball stemmer has problem with ascii, delete characters
+				tweet_ascii = filter(lambda x: ord(x) < 128, self.tweets[index])
+				stemmed_tweet = self.stem_tweet(tweet_ascii)		
 				self.stemmed_tweets_array.append(stemmed_tweet)
 
 	def stem_tweet(self, tweet):
@@ -110,8 +119,8 @@ class Preprocessing(object):
 				print "! Error in reading from file debug.txt. Redo tokenization"
 				debug = False
 		if (not debug):
-			for item in self.tweetarray:
-				tokens = nltk.word_tokenize(item)
+			for index in self.tweets:
+				tokens = nltk.word_tokenize(self.tweets[index])
 				self.tokenized_tweets_array.append(tokens)
 
 	def frogtokens(self):
@@ -136,9 +145,9 @@ class Preprocessing(object):
 			if ( "pos" in self.mode ):
 				print "** Creating POS tags.."
 			
-			for item in self.tweetarray:
-				# Write tokens to file for later testing
-				tokensword, tokenslemma, tokenspos = self.frog_tweets(frogclient, item)
+			# Get frog analyses
+			for index in self.tweets:
+				tokensword, tokenslemma, tokenspos = self.frog_tweets(frogclient, self.tweets[index])
 				if ( tokenslemma ):
 					self.lemmatized_tweets_array.append(tokenslemma)
 				if ( tokenspos ):

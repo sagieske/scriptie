@@ -28,11 +28,15 @@ class BagOfWords(object):
 	def __init__(self, total_tokenarray, total_tweetclasses, trainset):
 		""" Initialize arrays according to trainset"""
 		for itemindex in trainset:
+			#print len(total_tokenarray)
+			#print len(total_tweetclasses)
 			self.tokenarray[itemindex] = total_tokenarray[itemindex]
 			self.tweet_classes[itemindex] = total_tweetclasses[itemindex]
 
 	def create_corpus(self, ngramsize):
 		""" Create training corpus """
+		self.corpus = {}
+		self.bow = {}
 		for index, key in enumerate(self.tokenarray):
 			tokens = self.tokenarray[key]
 			tweetclass = self.tweet_classes[key]
@@ -65,7 +69,9 @@ class BagOfWords(object):
 	 			self.corpus[tupleItem] = addition
 
 	def setCorpusWeights(self):
-		""" Set weights for words. Remove singular occurances. """
+		""" Set weights for words. Remove singular occurances. 
+		Calculation for impact is dependent on occurance in pos/neg tweet
+		"""
 		for key,value in self.corpus.iteritems():
 			value_pos, value_neg = value
 
@@ -77,7 +83,7 @@ class BagOfWords(object):
 				if (value_pos > 0):
 					positive = value_pos/float(self.totalPos)
 				if (value_neg > 0):
-					negative = value_neg/float(self.totalNeg)
+					negative = value_neg/ float(self.totalNeg)
 
 				valueweight =(positive - negative)
 				if (valueweight != 0):
@@ -91,7 +97,6 @@ class BagOfWords(object):
 		""" Scale weights of corpus to [MIN_RANGE, MAX_RANGE] """
 
 		oldMax = float(max(self.bow.iteritems(), key=operator.itemgetter(1))[1])
-		print oldMax
 		oldMin = float(min(self.bow.iteritems(), key=operator.itemgetter(1))[1])
 
 		if(oldMin == oldMax):
@@ -118,7 +123,6 @@ class BagOfWords(object):
 	def bow_partial(self, **kwargs):
 		""" Select part of Bag of Words and return dict """
 		partial = {}
-
 		nr = kwargs.get('nr',len(self.bow))
 		min_border = kwargs.get('min_border',0)
 		max_border = kwargs.get('max_border',0)
@@ -135,23 +139,21 @@ class BagOfWords(object):
 
 		return partial
 
-	# TODO: TUPLE PRINTING!
 	def find_highest(self,corpus, nr):
-		""" Print out max <nr> of corpus """
+		""" Get <nr> of corpus with highest values"""
 		print ">> %d max of corpus" %nr
 		topCorpus = dict(sorted(corpus.iteritems(), key=operator.itemgetter(1), reverse=True)[:nr])
-		for item in topCorpus:
-			value = topCorpus[item]
-			print "(%s) : %f" % (item[0], value)
+
+	def print_topcorpus(self,corpus,nr):
+		""" Print out corpus """
+		for item in corpus:
+			value = corpus[item]
+			print "(%s) : %f" % (','.join(item), value)
 
 	def find_lowest(self,corpus, nr):
-		""" Print out min <nr> of corpus """
+		""" Print out <nr> of corpus with lowest values"""
 		print ">> %d min of corpus" %nr
 		topCorpus = dict(sorted(corpus.iteritems(), key=operator.itemgetter(1), reverse=False)[:nr])
-		for item in topCorpus:
-			value = topCorpus[item]
-			print "(%s) : %f" % (item[0], value)
 
 
-#b = BagOfWords([["test", "nee", "hello"],["nla", "wfr" , "gh", "sfe"], ["a", "asdf", "sdfsd"],["a", "asdf", "sdfsd"]], {0: 1, 1: 0, 2: 0, 3: 0}, [0,2,3])
 
