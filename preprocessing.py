@@ -5,10 +5,11 @@ from pynlpl.clients.frogclient import FrogClient	# used for Frog client
 import subprocess									# used for calling Frog in new terminal
 import signal										# used for calling Frog in new terminal
 import math	 
-import pickle										# write and load list to file
 import nltk											# used for stemmer
 import re											# used for regex
 import time											# used for sleep
+import pickle										# write and load list to file
+import helpers
 
 class Preprocessing(object):
 	"""
@@ -22,7 +23,7 @@ class Preprocessing(object):
 	DEBUG_LEMMA = "debug_lemma.txt"
 	DEBUG_POS = "debug_pos.txt"
 
-	PORTNUMBER = 1150	# PORTNUMBER for Frog
+	PORTNUMBER = 1160	# PORTNUMBER for Frog
 
 	tweets = {}
 	stemmed_tweets_array = []
@@ -46,18 +47,13 @@ class Preprocessing(object):
 		mode_args = self.mode.split()
 		if("stem" in mode_args):
 			self.stemming()
-			#self.stemming_str()				
 		if("token" in mode_args):
 			self.tokenize()
-			#self.tokenize_str()
 		if("frog" in mode_args):
 			self.frogtokens()
-			#if("lemma" in mode_args):
-			#	self.lemmatized_str()
-			#if("pos" in mode_args):
-			#	self.pos_str()
 
 		if ( self.dump ):
+			print "DUMPING TO FILE"
 			self.write_all_to_file()
 				
 	def stemming_str(self):
@@ -96,7 +92,7 @@ class Preprocessing(object):
 				debug = False
 		if (not debug):
 			for index in self.tweets:
-				# Snowball stemmer has problem with ascii, delete characters
+				# Snowball stemmer has problem with c, delete characters
 				tweet_ascii = filter(lambda x: ord(x) < 128, self.tweets[index])
 				stemmed_tweet = self.stem_tweet(tweet_ascii)		
 				self.stemmed_tweets_array.append(stemmed_tweet)
@@ -199,18 +195,19 @@ class Preprocessing(object):
 		if ( "lemma" in frogmode):
 			self.lemmatized_tweets_array = pickle.load(f)
 
-	def write_to_file(self, filename, array):
-		"""	Dump array to file """
-		f = file(filename, "w")
-		pickle.dump(array, f)
-
+	#def dump_to_file(self, filename, array):
+	#	"""	#Dump array to file """
+	#	f = file(filename, "w")
+	#	pickle.dump(array, f)
+	#"""
 	def write_all_to_file(self):
 		"""	Dumps all filled arrays to file """
+		print "WRITE TO FILE"
 		if ( self.stemmed_tweets_array ):
-			self.write_to_file(self.DEBUG_STEM, self.stemmed_tweets_array)
+			helpers.dump_to_file(self.DEBUG_STEM, self.stemmed_tweets_array)
 		if ( self.tokenized_tweets_array ):
-			self.write_to_file(self.DEBUG_TOKEN, self.tokenized_tweets_array)
+			helpers.dump_to_file(self.DEBUG_TOKEN, self.tokenized_tweets_array)
 		if ( self.lemmatized_tweets_array ):
-			self.write_to_file(self.DEBUG_LEMMA, self.lemmatized_tweets_array)
+			helpers.dump_to_file(self.DEBUG_LEMMA, self.lemmatized_tweets_array)
 		if ( self.pos_tweets_array ):
-			self.write_to_file(self.DEBUG_POS, self.pos_tweets_array)
+			helpers.dump_to_file(self.DEBUG_POS, self.pos_tweets_array)
