@@ -13,17 +13,66 @@ import helpers
 
 class Preprocessing(object):
 	"""
-	Class for preprocessing tweets
-	blablaballa etc
+	Class for preprocessing tweets. Tweets can be split into tokens in 4 different ways:
+	- Tokenizing: tweets are split into tokens using nltk.tokenize
+	- Stemming: tweets are split into stemmed tokens using Dutch Snowball stemmer
+	- Lemmatized: tweets are split into lemmatized tokens (different verb tenses under same verb: e.g. 'drive', 'driving', 'drives' --> 
+		'drive') using Frog, a Dutch morpho-syntactic analyzer and dependency parser
+	- Part-Of-Speech: tweets are converted to POS tags and split into POS tokens using Frog, a Dutch morpho-syntactic analyzer and dependency 			parser
+
+	Preprocessed arrays can be printed out.
+
+	Parameters:
+	----------
+
+	mode : string
+		Mode for how to tokenize tweets
+
+	debug : boolean
+		If True, program tries to read processed tokens from file.
+
+	dump : boolean
+		If True, program writes processed tokens to file
+
+	tweets : dictionary of index key and string value
+		Dictionary holds tweet strings and indexnumber
+
+	lemmatized_tweets_array : array of arrays of strings
+		Array of arrays of tweets split into lemmatized tokens
+
+	pos_tweets_array : array of arrays of strings
+		Array of arrays of tweets split into Part-Of-Speech tokens
+
+	stemmed_tweets_array : array of arrays of strings
+		Array of arrays of tweets split into stemmed tokens
+
+	tokenized_tweets_array : array of arrays of strings
+		Array of arrays of tweets split into tokens
+
+	PORTNUMBER : int
+		Portnumber for connecting with Frog server
+
+	DEBUG_LEMMA : string
+		Filename for writing and reading lemmatized tokens (for debugging)
+
+	DEBUG_POS : string
+		Filename for writing and reading Part-Of-Speech tokens (for debugging)
+
+	DEBUG_STEM : string
+		Filename for writing and reading stemmed tokens (for debugging)
+
+	DEBUG_TOKEN : string
+		Filename for writing and reading tokens (for debugging)
+
 
 	"""
-	# Debug files
+
 	DEBUG_STEM = "debug_stem.txt"
 	DEBUG_TOKEN = "debug_token.txt"
 	DEBUG_LEMMA = "debug_lemma.txt"
 	DEBUG_POS = "debug_pos.txt"
 
-	PORTNUMBER = 1160	# PORTNUMBER for Frog
+	PORTNUMBER = 1160
 
 	tweets = {}
 	stemmed_tweets_array = []
@@ -195,11 +244,6 @@ class Preprocessing(object):
 		if ( "lemma" in frogmode):
 			self.lemmatized_tweets_array = pickle.load(f)
 
-	#def dump_to_file(self, filename, array):
-	#	"""	#Dump array to file """
-	#	f = file(filename, "w")
-	#	pickle.dump(array, f)
-	#"""
 	def write_all_to_file(self):
 		"""	Dumps all filled arrays to file """
 		print "WRITE TO FILE"
