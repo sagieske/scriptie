@@ -3,14 +3,44 @@ import math
 
 class BagOfWords(object):
 	"""
-	Class for preprocessing tweets
-	blablaballa etc
+	Class for creating and calculating Bag Of Words used for SVM classifier. Tokens are added to a corpus dictionary with their frequencies.
+	A dictionary with weights for tokens can be created. A partial Bag of Words can be created, getting the specified top tokens indicating the 	positive class (activity) and top tokens indicating the negative class (non-activity) with scores higher/lower than set borders.
+
+	Parameters:
+	----------
+	bow : dictionary with tuples with strings (n-gram length) as key and weights (float) as values.
+		Dictionary for positive/negative impact of tokens in tuple.
+		Positive value means positive impact on activity class. Negative value means negative impact on activity class. 
+	corpus:
+
+	tokenarray: 
+	tweet_classes:
+
+	totalPos: int
+		Total tokens in positive tweets (activity class)
+
+	totalNeg: int
+		Total tokens in negative tweets (non-activity class)
+
+	#TODO: next 4 are used for scaling in range. Is not used anymore??!
+	MIN_RANGE: constant int
+		Used for minimum border in scaling in range [MIN_RANGE, MAX_RANGE]
+
+	MAX_RANGE: constant int
+		Used for maximum border in scaling in range [MIN_RANGE, MAX_RANGE]
+
+	POS_BORDER: constant int
+		Used for minimum positive border for deletion in scaling in range [MIN_RANGE, MAX_RANGE]
+
+	NEG_BORDER: constant int
+		Used for minimum negative border for deletion in scaling in range [MIN_RANGE, MAX_RANGE]
 
 	"""
+
 	bow = {}
+	corpus = {}
 	tokenarray = {}
 	tweet_classes = {}
-	corpus = {}
 
 	totalPos = 0
 	totalNeg = 0
@@ -26,11 +56,11 @@ class BagOfWords(object):
 
 	def __init__(self, total_tokenarray, total_tweetclasses, trainset):
 		""" Initialize arrays according to trainset"""
-		self.bow = {}
-		self.tokenarray = {}
-		self.tweet_classes = {}
-		self.corpus = {}
-		self.bow = {}
+		#self.bow = {}
+		#self.tokenarray = {}
+		#self.tweet_classes = {}
+		#self.corpus = {}
+		#self.bow = {}
 		for itemindex in trainset:
 			self.tokenarray[itemindex] = total_tokenarray[itemindex]
 			self.tweet_classes[itemindex] = total_tweetclasses[itemindex]
@@ -44,8 +74,6 @@ class BagOfWords(object):
 			tweetclass = self.tweet_classes[key]
 			self.add_tokens_to_corpus(tokens, tweetclass, ngramsize)
 		self.setCorpusWeights()
-		#self.find_highest(self.bow, 10)
-		#self.find_lowest(self.bow, 10)
 		
 	def add_tokens_to_corpus(self,tokens,tweetclass, ngramsize):
 		""" add every token to corpus accoding to class"""
@@ -93,6 +121,7 @@ class BagOfWords(object):
 
 		#self.scaleCorpusWeights()
 
+	# TODO: Scaling is not done anymore here ?!
 	def scaleCorpusWeights(self):
 		""" Scale weights of corpus to [MIN_RANGE, MAX_RANGE] """
 
