@@ -1,4 +1,10 @@
 # File for help functions
+import pickle
+
+def dump_to_file(filename, array):
+	"""	Dump array to file """
+	f = file(filename, "w")
+	pickle.dump(array, f)
 
 def unfold_tuples(dictionary):
 	""" Unfold all tuples in dictionary to single items"""
@@ -8,3 +14,5 @@ def unfold_tuples(dictionary):
 			unfold_tuples_array.append( item )
 	list(set(unfold_tuples_array))
 	return unfold_tuples_array
+
+
