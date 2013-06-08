@@ -11,7 +11,6 @@ class BagOfWords(object):
 	tokenarray = {}
 	tweet_classes = {}
 	corpus = {}
-	bow = {}
 
 	totalPos = 0
 	totalNeg = 0
@@ -27,9 +26,12 @@ class BagOfWords(object):
 
 	def __init__(self, total_tokenarray, total_tweetclasses, trainset):
 		""" Initialize arrays according to trainset"""
+		self.bow = {}
+		self.tokenarray = {}
+		self.tweet_classes = {}
+		self.corpus = {}
+		self.bow = {}
 		for itemindex in trainset:
-			#print len(total_tokenarray)
-			#print len(total_tweetclasses)
 			self.tokenarray[itemindex] = total_tokenarray[itemindex]
 			self.tweet_classes[itemindex] = total_tweetclasses[itemindex]
 
@@ -42,8 +44,8 @@ class BagOfWords(object):
 			tweetclass = self.tweet_classes[key]
 			self.add_tokens_to_corpus(tokens, tweetclass, ngramsize)
 		self.setCorpusWeights()
-		self.find_highest(self.bow, 10)
-		self.find_lowest(self.bow, 10)
+		#self.find_highest(self.bow, 10)
+		#self.find_lowest(self.bow, 10)
 		
 	def add_tokens_to_corpus(self,tokens,tweetclass, ngramsize):
 		""" add every token to corpus accoding to class"""
@@ -88,10 +90,8 @@ class BagOfWords(object):
 				valueweight =(positive - negative)
 				if (valueweight != 0):
 					self.bow[key] = valueweight
-					# TODO: problem with smoothing of weights?!
-					#self.bow[key] = math.copysign(math.pow(math.fabs(valueweight),2), valueweight)
 
-		self.scaleCorpusWeights()
+		#self.scaleCorpusWeights()
 
 	def scaleCorpusWeights(self):
 		""" Scale weights of corpus to [MIN_RANGE, MAX_RANGE] """
@@ -139,21 +139,21 @@ class BagOfWords(object):
 
 		return partial
 
+	def find_lowest(self,corpus, nr):
+		""" Print out <nr> of corpus with lowest values"""
+		topCorpus = dict(sorted(corpus.iteritems(), key=operator.itemgetter(1), reverse=False)[:nr])
+
 	def find_highest(self,corpus, nr):
 		""" Get <nr> of corpus with highest values"""
-		print ">> %d max of corpus" %nr
 		topCorpus = dict(sorted(corpus.iteritems(), key=operator.itemgetter(1), reverse=True)[:nr])
 
 	def print_topcorpus(self,corpus,nr):
 		""" Print out corpus """
+		print ">> %d of corpus" %nr
 		for item in corpus:
 			value = corpus[item]
 			print "(%s) : %f" % (','.join(item), value)
 
-	def find_lowest(self,corpus, nr):
-		""" Print out <nr> of corpus with lowest values"""
-		print ">> %d min of corpus" %nr
-		topCorpus = dict(sorted(corpus.iteritems(), key=operator.itemgetter(1), reverse=False)[:nr])
 
 
 
