@@ -67,10 +67,10 @@ class Preprocessing(object):
 
 	"""
 
-	DEBUG_STEM = "debug_stem.txt"
-	DEBUG_TOKEN = "debug_token.txt"
-	DEBUG_LEMMA = "debug_lemma.txt"
-	DEBUG_POS = "debug_pos.txt"
+	DEBUG_STEM = "debug2_stem.txt"
+	DEBUG_TOKEN = "debug2_token.txt"
+	DEBUG_LEMMA = "debug2_lemma.txt"
+	DEBUG_POS = "debug2_pos.txt"
 
 	PORTNUMBER = 1160
 
@@ -203,7 +203,7 @@ class Preprocessing(object):
 		""" Starts/stops Frog server in seperate terminal """
 		if(mode == 'start'):
 			print "** Start Frog Server"
-			os.system("mate-terminal -e 'frog -S " + str(self.PORTNUMBER) + "'")
+			os.system("mate-terminal -e 'frog -S " + str(self.PORTNUMBER) + " > /dev/null 2>&1'")
 		if(mode == 'stop'):
 			print "** Close Frog Server"
 			proc = subprocess.Popen(["pgrep", 'frog'], stdout=subprocess.PIPE) 
