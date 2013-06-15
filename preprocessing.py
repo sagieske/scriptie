@@ -184,15 +184,17 @@ class Preprocessing(object):
 			self.startFrogServer('start')			
 			time.sleep(15)							# Time for startup server
 			frogclient = FrogClient('localhost',self.PORTNUMBER)
+			print "** START frog analysis."
 			if( "lemma" in self.mode ):
-				print "** Creating lemma's.."
+				print "** Creating lemma's.. (This may take a while)""
 
 			if ( "pos" in self.mode ):
-				print "** Creating POS tags.."
+				print "** Creating POS tags.. (This may take a while)""
 			
 			# Get frog analyses
 			for index in self.tweets:
 				tokensword, tokenslemma, tokenspos = self.frog_tweets(frogclient, self.tweets[index])
+
 				if ( tokenslemma ):
 					self.lemmatized_tweets_array.append(tokenslemma)
 				if ( tokenspos ):
@@ -203,7 +205,8 @@ class Preprocessing(object):
 		""" Starts/stops Frog server in seperate terminal """
 		if(mode == 'start'):
 			print "** Start Frog Server"
-			os.system("mate-terminal -e 'frog -S " + str(self.PORTNUMBER) + " > /dev/null 2>&1'")
+			#os.system("mate-terminal -e 'frog -S " + str(self.PORTNUMBER) + " > /dev/null 2>&1'")
+			os.system("frog -S " + str(self.PORTNUMBER) + " > /dev/null 2>&1 &")
 		if(mode == 'stop'):
 			print "** Close Frog Server"
 			proc = subprocess.Popen(["pgrep", 'frog'], stdout=subprocess.PIPE) 
