@@ -75,6 +75,9 @@ class Main(object):
 	test_tweetclasses = []
 	test_vectors = []
 
+	# Cross validation folds
+	CROSS_VALIDATION = 5
+
 	def __init__(self, mode):
 		""" Initialize tweets, preprocess and create train/test sets"""
 		self.mode = mode
@@ -112,7 +115,7 @@ class Main(object):
 		self.test_tweetclasses, self.test_vectors, trainscaler = self.svm_create_traintestdata(array, posbow, negbow, self.testset, mode, scaler=trainscaler)
 
 		# Run SVM
-		results = self.run_svm(np.array(self.train_vectors), np.array(self.train_tweetclasses), np.array(self.test_vectors), np.array(self.test_tweetclasses), 5)
+		results = self.run_svm(np.array(self.train_vectors), np.array(self.train_tweetclasses), np.array(self.test_vectors), np.array(self.test_tweetclasses), self.CROSS_VALIDATION)
 
 		return results
 
@@ -163,8 +166,10 @@ class Main(object):
 		# Use all words in tweets
 		if ( allwords ):
 			for index in indexset:
-				tweets.append(array[index])
+				tweets.append(' '.join(array[index]))
 				classes.append(self.tweet_class[index])
+
+
 
 		
 		# Use words occuring in BOW of tweet
@@ -236,77 +241,60 @@ class Main(object):
 
 		negbow, posbow = self.collect_bow(array, ngram, minborder, maxborder, nr/2)
 
-		"""
-		# Create Bag of Words. Use all words if nr == 0
-		if nr > 0:
-			totalbow.update(bowObject.bow_partial(max_border=0, min_border=-1, nr=nr/2))
-			totalbow.update(bowObject.bow_partial(max_border=1, min_border=0, nr=nr/2))
-			keys = totalbow.keys()
-			for index in self.trainset:
-				tweet = array[index]
-				string = ''
-				for (word,) in totalbow:
-					if word.encode('utf8') in tweet:
-						string += word + ' '
-
-				traintweets.append(string)
-				y_train.append(self.tweet_class[index])
-
-			for index in self.testset:
-				tweet = array[index]
-				string = ''
-				for (word,) in totalbow:
-					if word.encode('utf8') in tweet:
-						string += word + ' '
-				testtweets.append(string)
-				y_test.append(self.tweet_class[index])
-
-		else:
-			for index in self.trainset:
-				traintweets.append(self.tweets[index])
-				y_train.append(self.tweet_class[index])
-			for index in self.testset:
-				testtweets.append(self.tweets[index])
-				y_test.append(self.tweet_class[index])
-		"""
-
+		allwords = False
+		if 'allwords' in mode:
+			allwords = True
 		#train_classes, train_tweets = self.nb_create_traintestdata(array, ngram, posbow, negbow, self.trainset, mode)
 		#test_classes, test_tweets = self.nb_create_traintestdata(array, ngram, posbow, negbow, self.testset, mode)
-		self.train_tweetclasses, self.train_vectors = self.nb_create_traintestdata(array, ngram, posbow, negbow, self.trainset, mode)
-		self.test_tweetclasses, self.test_vectors = self.nb_create_traintestdata(array, ngram, posbow, negbow, self.testset, mode)
+		self.train_tweetclasses, self.train_vectors = self.nb_create_traintestdata(array, ngram, posbow, negbow, self.trainset, mode, allwords=allwords)
+		self.test_tweetclasses, self.test_vectors = self.nb_create_traintestdata(array, ngram, posbow, negbow, self.testset, mode, allwords=allwords)
 
-		# Run SVM
-		results = self.run_naivebayes(np.array(self.train_vectors), np.array(self.train_tweetclasses), np.array(self.test_vectors), np.array(self.test_tweetclasses))
+		# Run Naive Bayes
+		results = self.run_naivebayes(np.array(self.train_vectors), np.array(self.train_tweetclasses), np.array(self.test_vectors), np.array(self.test_tweetclasses),ngram, self.CROSS_VALIDATION)
 
 		#results = self.run_naivebayes(np.array(train_tweets), np.array(train_classes), np.array(test_tweets), np.array(test_classes))
 
 		return results
 
 
-	def run_naivebayes(self, X_train, y_train, X_test, y_test):
-		""" Fit Naive Bayes Classification on train set. 
+	def run_naivebayes(self, X_train, y_train, X_test, y_test,ngram, k):
+		""" Fit Naive Bayes Classification on train set with cross validation. 
 		Run Naive Bayes Classificaiton on test set. Return results
 		"""
-		print len(X_train)
-		count_vect = CountVectorizer()
+
+		# Transform train and test data
+		count_vect = CountVectorizer(ngram_range=(ngram[0],ngram[len(ngram)-1]))
 
 		X_train_counts = count_vect.fit_transform(X_train)
-
 		tfidf_transformer = TfidfTransformer()
 		X_train_tfidf = tfidf_transformer.fit_transform(X_train_counts)
 
-		print "** Fitting Naive Bayes classifier.."
-		clf = MultinomialNB().fit(X_train_tfidf, y_train)
-	
 		X_new_counts = count_vect.transform(X_test)
 		X_new_tfidf = tfidf_transformer.transform(X_new_counts)
 
+		print "** Fitting Naive Bayes classifier.."
+
+		# Apply cross validation
+		cv = cross_validation.KFold(X_train_tfidf.shape[0], n_folds=k, indices=True)
+
+		cv_naivebayes = []
+		for traincv, testcv in cv:
+			clf_cv = MultinomialNB()
+			clf_cv.fit(X_train_tfidf[traincv], y_train[traincv])
+			y_test_cv, y_pred_cv = y_train[testcv], clf_cv.predict(X_train_tfidf[testcv])
+			nb_tuple = (f1_score(y_test_cv, y_pred_cv), clf_cv)
+			cv_naivebayes.append(nb_tuple)
+		
+		# Get best classifier
+		(f1, best_clf) = max(cv_naivebayes,key=operator.itemgetter(0))
+		
 
 		print "** Run Naive Bayes classifier.."
-		y_true, y_pred = y_test, clf.predict(X_new_tfidf)
+		y_true, y_pred = y_test, best_clf.predict(X_new_tfidf)
 
 		tuples = precision_recall_fscore_support(y_true, y_pred)
 		return (tuples, 'N.A.', 'N.A.')
+
 
 
 
@@ -437,7 +425,7 @@ class Main(object):
 		if (debug):
 			try:
 				print "reading from file"
-				totallist = self.read_from_file(self.DEBUG_SETS)
+				totallist = helpers.read_from_file(self.DEBUG_SETS)
 				self.trainset = totallist[0]
 				self.testset = totallist[1]
 			except:
@@ -464,11 +452,7 @@ class Main(object):
 		print ">> Testset:  (%d)" % len(self.testset)
 		print self.testset
 
-	def read_from_file(self, filename):
-		"""	Load array from file """
-		f = file(filename, "r")
-		array = pickle.load(f)
-		return array
+
 
 	def count_classes(self):
 		"""
@@ -549,7 +533,6 @@ class Main(object):
 		""" Write results to CSV file"""
 		rows = []
 		try:
-			print len(results)
 			for item in results:
 				mode, gamma, c, ngram, bow, tuples = item
 
@@ -592,6 +575,20 @@ class Main(object):
 						resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
 					m.write_results_to_file(resulttuple)
 
+		self.CROSS_VALIDATION = 10
+
+		for mode in modes:
+			for ngram in ngramarray:
+				for lenbow in lenbows:
+					resulttuple = None
+					if 'svm' in mode:
+						(result, gamma, c) = self.start_svm_classification(mode, ngram, 0,0, lenbow)
+						resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
+					if 'nb' in mode:
+						(result, gamma, c) = self.start_naivebayes_classification(mode, ngram, 0, 0, lenbow)
+						resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
+					m.write_results_to_file(resulttuple)
+
 		dummy_result_array = self.compare_dummy_classification()
 		m.write_results_to_file(dummy_result_array)
 
@@ -602,11 +599,7 @@ class Main(object):
 m = Main("frog lemma pos stem token --debug")
  
 
-modes = ['nb pos posneg']
-ngramarray = [[1],[1,2], [1,2,3]]
-lenbows = [200]
+modes = ['svm lemma posneg','nb lemma posneg', 'nb lemma posneg allwords']
+ngramarray = [[1,2], [1,2,3]]
+lenbows = [150,200]
 m.run_classification(modes, ngramarray, lenbows)
-"""
-#m.splitbow({('a',):1, ('z',):2, ('e', 'a'):3, ('fg',):11, ('testen', 'is', 'kut'):4}, [1,2,3])
-m.get_bowtweet( ['hallo', 'ik', 'ben', 'dit'], {('hallo','nee'):1, ('ik','ben', 'dit'):2, ('ben','dit'):2, ('hallo',):3}, [2,3])
-"""
