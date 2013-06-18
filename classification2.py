@@ -33,8 +33,6 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
 
-from sklearn.datasets import fetch_20newsgroups
-
 
 import helpers
 
@@ -104,16 +102,16 @@ class Main(object):
 
 	def start_svm_classification(self, mode, ngrambow, minborder, maxborder, nr):
 		""" Runs classification learning"""
-
 		# Create BOW
 		array = self.get_preprocessed_array(mode)
 		negbow, posbow = self.collect_bow(array, ngrambow, minborder, maxborder, nr/2)
 		totalbow = dict(posbow.items() + negbow.items())
 
 		# Create train & test data (classes, vectors)
-		self.train_tweetclasses, self.train_vectors, trainscaler = self.create_traintestdata(array, posbow, negbow, self.trainset, mode)
-		self.test_tweetclasses, self.test_vectors, trainscaler = self.create_traintestdata(array, posbow, negbow, self.testset, mode, scaler=trainscaler)
+		self.train_tweetclasses, self.train_vectors, trainscaler = self.svm_create_traintestdata(array, posbow, negbow, self.trainset, mode)
+		self.test_tweetclasses, self.test_vectors, trainscaler = self.svm_create_traintestdata(array, posbow, negbow, self.testset, mode, scaler=trainscaler)
 
+		# Run SVM
 		results = self.run_svm(np.array(self.train_vectors), np.array(self.train_tweetclasses), np.array(self.test_vectors), np.array(self.test_tweetclasses), 5)
 
 		return results
@@ -123,6 +121,7 @@ class Main(object):
 		Then predict test set. Return best parameters and scores.
 		"""
 		clf = svm.SVC()
+
 		# Parameter grid
 		param_grid = [
 		 {'C': np.logspace(1,5,5), 'gamma': np.logspace(-3,0,5), 'kernel': ['rbf']}
@@ -146,8 +145,81 @@ class Main(object):
 
 		return (tuples, gamma1, c)
 
+	def nb_create_traintestdata(self, array, ngram, posbow, negbow, indexset,mode, **kwargs):
 
-	def start_naivebayes_classification(self, mode, ngram, nr):
+		allwords = kwargs.get('allwords', False)
+		tweets = []
+		classes = []
+
+
+		# Select BOW type
+		if ('posneg' in mode):
+			bow = dict(posbow.items() + negbow.items())
+		if ('pos1' in mode):
+			bow =  posbow
+		if ('neg1' in mode):
+			bow = negbow
+
+		# Use all words in tweets
+		if ( allwords ):
+			for index in indexset:
+				tweets.append(array[index])
+				classes.append(self.tweet_class[index])
+
+		
+		# Use words occuring in BOW of tweet
+		else:
+			for index in indexset:
+				tweet = array[index]
+				bowtweet = self.get_bowtweet(tweet, bow, ngram)
+				tweets.append(bowtweet)
+				classes.append(self.tweet_class[index])
+		
+		return (classes, tweets)
+
+
+	def get_bowtweet(self, tweet, bow, ngram_array):
+		""" Get modified tweet with only words in bow"""
+		tuple_array = self.splitbow(bow, ngram_array)
+		
+		listtweets = []
+		# Set default to False
+		for i in range(0, len(ngram_array)):
+			listtweet = [False]*len(tweet)
+			listtweets.append(listtweet)
+		
+		# Get array of Booleans for words occuring in BOW
+		for index_n, ngram in enumerate(ngram_array):
+			for index_t, word in enumerate(tweet):
+				wordstring = ' '.join(tweet[index_t:index_t+ngram])
+				if wordstring in tuple_array[index_n]:
+					for i in range(index_t,index_t+ngram):
+						listtweets[index_n][i] = True
+
+		values = zip(*listtweets)
+
+		new_tweet_array = []
+		for index, word in enumerate(tweet):
+			if ( any(values[index]) ):
+				new_tweet_array.append(word)
+		new_tweet = ' '.join(new_tweet_array)
+		return new_tweet
+			
+	def splitbow(self, bow, ngramtypes_array):
+		""" Split BOW in arrays of tuples with same length """
+		splitted_bowkeys = []
+		for ngram in ngramtypes_array:
+			ngram_array = []
+			for item in bow:
+				if len(item) == ngram:
+					ngram_array.append(item)
+			test = helpers.unfold_tuples_strings(ngram_array)
+			splitted_bowkeys.append(test)
+
+		return splitted_bowkeys
+
+	
+	def start_naivebayes_classification(self, mode, ngram, minborder, maxborder, nr):
 		""" Run Naive Bayes classifier """
 
 		traintweets = []
@@ -157,15 +229,19 @@ class Main(object):
 
 		array = self.get_preprocessed_array(mode)
 
+
 		# Initialize Bag of Words Object
 		bowObject = BagOfWords(array, self.tweet_class, self.trainset)
-		totalbow = {}
-		bowObject.create_corpus(1)
 
+
+		negbow, posbow = self.collect_bow(array, ngram, minborder, maxborder, nr/2)
+
+		"""
 		# Create Bag of Words. Use all words if nr == 0
 		if nr > 0:
-			totalbow.update(bowObject.bow_partial(max_border=0+posborder, min_border=-1, nr=nr/2))
-			totalbow.update(bowObject.bow_partial(max_border=1, min_border=0+negborder, nr=nr/2))
+			totalbow.update(bowObject.bow_partial(max_border=0, min_border=-1, nr=nr/2))
+			totalbow.update(bowObject.bow_partial(max_border=1, min_border=0, nr=nr/2))
+			keys = totalbow.keys()
 			for index in self.trainset:
 				tweet = array[index]
 				string = ''
@@ -192,8 +268,17 @@ class Main(object):
 			for index in self.testset:
 				testtweets.append(self.tweets[index])
 				y_test.append(self.tweet_class[index])
+		"""
 
-		results = self.run_naivebayes(np.array(traintweets), np.array(y_train), np.array(testtweets), np.array(y_test))
+		#train_classes, train_tweets = self.nb_create_traintestdata(array, ngram, posbow, negbow, self.trainset, mode)
+		#test_classes, test_tweets = self.nb_create_traintestdata(array, ngram, posbow, negbow, self.testset, mode)
+		self.train_tweetclasses, self.train_vectors = self.nb_create_traintestdata(array, ngram, posbow, negbow, self.trainset, mode)
+		self.test_tweetclasses, self.test_vectors = self.nb_create_traintestdata(array, ngram, posbow, negbow, self.testset, mode)
+
+		# Run SVM
+		results = self.run_naivebayes(np.array(self.train_vectors), np.array(self.train_tweetclasses), np.array(self.test_vectors), np.array(self.test_tweetclasses))
+
+		#results = self.run_naivebayes(np.array(train_tweets), np.array(train_classes), np.array(test_tweets), np.array(test_classes))
 
 		return results
 
@@ -202,6 +287,7 @@ class Main(object):
 		""" Fit Naive Bayes Classification on train set. 
 		Run Naive Bayes Classificaiton on test set. Return results
 		"""
+		print len(X_train)
 		count_vect = CountVectorizer()
 
 		X_train_counts = count_vect.fit_transform(X_train)
@@ -220,16 +306,18 @@ class Main(object):
 		y_true, y_pred = y_test, clf.predict(X_new_tfidf)
 
 		tuples = precision_recall_fscore_support(y_true, y_pred)
-		return (tuples, 0, 0)
+		return (tuples, 'N.A.', 'N.A.')
 
 
 
-	def compare_dummy(self):
+	def compare_dummy_classification(self):
 		""" Compares classifier to dummy classifiers. Return results"""
 		X_train = self.train_vectors
 		y_train = self.train_tweetclasses
 		X_test = self.test_vectors
 		y_test = self.test_tweetclasses
+
+		dummy_results = []
 
 		dummy = DummyClassifier(strategy='most_frequent',random_state=0)
 		dummy.fit(X_train, y_train)
@@ -246,12 +334,20 @@ class Main(object):
 		y_true, y_preddum2 = y_test, dummy2.predict(X_test)
 		tuples2 = precision_recall_fscore_support(y_true, y_preddum2)
 
-		return (tuples, tuples1,tuples2)
+		resulttuple = ('dummy freq', 'N.A.','N.A.', 'N.A.', 'N.A.', tuples)
+		resulttuple1 = ('dummy strat', 'N.A.', 'N.A.', 'N.A.', 'N.A.', tuples1)
+		resulttuple2 = ('dummy uni', 'N.A.', 'N.A.', 'N.A.', 'N.A.', tuples2)
+
+		dummy_results.append(resulttuple)
+		dummy_results.append(resulttuple1)
+		dummy_results.append(resulttuple2)
+
+		return dummy_results
 		
 
 
-	def create_traintestdata(self, array, posbow, negbow, indexset,mode, **kwargs):
-		""" creates dataset needed for training/testing"""
+	def svm_create_traintestdata(self, array, posbow, negbow, indexset,mode, **kwargs):
+		""" creates dataset needed for training/testing of SVM"""
 		vecformat_array = []
 		vectest = []
 		class_set = []
@@ -308,11 +404,12 @@ class Main(object):
 	def get_preprocessed_array(self, arrayname):
 		""" Get processed array according to name """
 		mode = arrayname.split()
+
 		if ( "stem" in mode[1]):
 			return self.stemmed_tweets_array
 		if ( "token" in mode[1]):
 			return self.tokenized_tweets_array
-		if ( "pos " in mode[1]): 
+		if ( "pos" in mode[1]): 
 			return self.pos_tweets_array
 		if ( "lemma" in mode[1]):
 			return self.lemmatized_tweets_array
@@ -450,37 +547,39 @@ class Main(object):
 
 	def write_results_to_file(self, results):
 		""" Write results to CSV file"""
-		openfile  = open(self.RESULTFILE, "a")
-		csv_writer = csv.writer(openfile,delimiter = ',')
-		
+		rows = []
 		try:
+			print len(results)
 			for item in results:
-				mode, gamma1, c1, ngram, bow, tuples = item
-				gamma = "%.4f" % gamma1
-				c = "%.0f" %c1
+				mode, gamma, c, ngram, bow, tuples = item
+
+				if isinstance(gamma, float):
+					gamma = "%.4f" % gamma
+				if isinstance(c, float):
+					c = "%.0f" %c
 
 				metriclist = self.string_metrics(tuples)
 				row = [mode, gamma, c, ngram, bow]
 				row += metriclist
-				csv_writer.writerow(row)
+				rows.append(row)
 		except TypeError: 
 			print "Error: Type of parameter result"
-		openfile.close()
+
+		helpers.write_to_csv(self.RESULTFILE, "a", rows)
 
 
 	def write_begin(self):
 		""" Write header for results to CSV file """
-		openfile  = open(self.RESULTFILE, "wb")
-		csv_writer = csv.writer(openfile,delimiter = ',')
-		headings = (["MODE","GAMMA", "C", "NGRAM", "BOW", "F1", "F1_0", "F1_1", "Precision", "P_0", "P_1", "Recall", "R_0", "R_1"])
-		csv_writer.writerow(headings)
-		openfile.close()
+		rows = [["MODE","GAMMA", "C", "NGRAM", "BOW", "F1", "F1_0", "F1_1", "Precision", "P_0", "P_1", "Recall", "R_0", "R_1"]]
+		helpers.write_to_csv(self.RESULTFILE, "wb", rows)
+
 
 	def run_classification(self, modes, ngramarray, lenbows):
 		""" Run classifications according to input and write results to file."""
 		begin = time.time()
 
 		m.write_begin()
+
 		for mode in modes:
 			for ngram in ngramarray:
 				for lenbow in lenbows:
@@ -489,17 +588,25 @@ class Main(object):
 						(result, gamma, c) = self.start_svm_classification(mode, ngram, 0,0, lenbow)
 						resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
 					if 'nb' in mode:
-						(result, gamma, c) = self.start_naivebayes_classification(mode, ngram, lenbow)
+						(result, gamma, c) = self.start_naivebayes_classification(mode, ngram, 0, 0, lenbow)
 						resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
 					m.write_results_to_file(resulttuple)
+
+		dummy_result_array = self.compare_dummy_classification()
+		m.write_results_to_file(dummy_result_array)
 
 		print "TIME TAKEN: %f seconds" % (time.time() - begin)
 
 
 # call main with mode
 m = Main("frog lemma pos stem token --debug")
+ 
 
-modes = [ 'svm lemma posneg', 'nb lemma', 'test']
-ngramarray = [[1,2]]
-lenbows = [50]
+modes = ['nb pos posneg']
+ngramarray = [[1],[1,2], [1,2,3]]
+lenbows = [200]
 m.run_classification(modes, ngramarray, lenbows)
+"""
+#m.splitbow({('a',):1, ('z',):2, ('e', 'a'):3, ('fg',):11, ('testen', 'is', 'kut'):4}, [1,2,3])
+m.get_bowtweet( ['hallo', 'ik', 'ben', 'dit'], {('hallo','nee'):1, ('ik','ben', 'dit'):2, ('ben','dit'):2, ('hallo',):3}, [2,3])
+"""
