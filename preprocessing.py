@@ -87,10 +87,7 @@ class Preprocessing(object):
   		self.dump = "--write" in mode
 		self.mode = re.sub(r' --(\S+)', r'', mode)
 
-		print "DUMPING? "
-		print self.dump
 
-		#self.preprocess_tweets()
 
 	def preprocess_tweets(self):
 		"""	Call functions to process tweets according to mode"""
