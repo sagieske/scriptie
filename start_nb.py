@@ -89,10 +89,27 @@ class Start_NB(object):
 		return (tuples, 'N.A.', 'N.A.')
 
 	def nb_create_traintestdata(self, array, indexset, **kwargs):
-
+		""""  """	
 		allwords = kwargs.get('allwords', False)
 		tweets = []
 		classes = []
+
+		if ( allwords ):
+			for index in indexset:
+				tweets.append(array[index])
+				classes.append(self.tweetclass[index])
+		else:
+			for index in indexset:
+				tweets.append(array[index])
+				classes.append(self.tweetclass[index])
+
+		inputdata = self.nb_create_inputdata(tweets, allwords)
+
+		return (classes, inputdata)
+
+
+	def nb_create_inputdata(self, tweets, allwords):
+		""" """
 
 		# Select BOW type
 		if ('posneg' in self.mode):
@@ -101,7 +118,17 @@ class Start_NB(object):
 			bow =  self.posbow
 		if ('neg1' in self.mode):
 			bow = self.negbow
-
+		inputdata = []
+		if ( allwords ):
+			for item in tweets:
+				inputdata.append(' '.join(item))
+		else:
+			for item in tweets:
+				bowtweet = self.get_bowtweet(item, bow)
+				inputdata.append(bowtweet)
+			
+		
+		"""
 		# Use all words in tweets
 		if ( allwords ):
 			for index in indexset:
@@ -118,8 +145,11 @@ class Start_NB(object):
 				bowtweet = self.get_bowtweet(tweet, bow)
 				tweets.append(bowtweet)
 				classes.append(self.tweetclass[index])
-		
+
 		return (classes, tweets)
+		"""
+
+		return inputdata
 
 
 	def get_bowtweet(self, tweet, bow):
