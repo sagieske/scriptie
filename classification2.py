@@ -36,6 +36,7 @@ from sklearn.feature_extraction.text import TfidfTransformer
 
 import helpers
 from start_svm import Start_SVM
+from start_nb import Start_NB
 
 
 class Main(object):
@@ -115,10 +116,84 @@ class Main(object):
 		array = self.get_preprocessed_array(mode)
 		tuplebows = self.collect_bow(array, ngrambow, minborder, maxborder, nr/2)
 
-		svmObject = Start_SVM(array, self.tweet_class, self.trainset, self.testset, True, tuplebows, 5)
+		svmObject = Start_SVM(array, self.tweet_class, self.trainset, self.testset, True, tuplebows, self.CROSS_VALIDATION)
 		results = svmObject.start_svm_testing(mode, minborder, maxborder, nr)
 
 		return results
+
+
+	
+	def start_naivebayes_classification(self, mode, ngrambow, minborder, maxborder, nr):
+		""" Run Naive Bayes classifier """
+
+		traintweets = []
+		y_train = []
+		testtweets = []
+		y_test = []
+
+		"""
+		array = self.get_preprocessed_array(mode)
+		# Initialize Bag of Words Object
+		bowObject = BagOfWords(array, self.tweet_class, self.trainset)
+		negbow, posbow = self.collect_bow(array, ngram, minborder, maxborder, nr/2)
+
+		allwords = False
+		if 'allwords' in mode:
+			allwords = True
+		self.train_tweetclasses, self.train_vectors = self.nb_create_traintestdata(array, ngram, posbow, negbow, self.trainset, mode, allwords=allwords)
+		self.test_tweetclasses, self.test_vectors = self.nb_create_traintestdata(array, ngram, posbow, negbow, self.testset, mode, allwords=allwords)
+
+		# Run Naive Bayes
+		results = self.run_naivebayes(np.array(self.train_vectors), np.array(self.train_tweetclasses), np.array(self.test_vectors), np.array(self.test_tweetclasses),ngram, self.CROSS_VALIDATION)
+
+		#results = self.run_naivebayes(np.array(train_tweets), np.array(train_classes), np.array(test_tweets), np.array(test_classes))
+		"""
+
+		array = self.get_preprocessed_array(mode)
+		tuplebows = self.collect_bow(array, ngrambow, minborder, maxborder, nr/2)
+
+		nbObject = Start_NB(array, self.tweet_class, self.trainset, self.testset, True, tuplebows, ngrambow, self.CROSS_VALIDATION)
+		results = nbObject.start_naivebayes_testing(mode, minborder, maxborder, nr)
+		return results
+
+	"""
+	def run_naivebayes(self, X_train, y_train, X_test, y_test,ngram, k):
+		""" """Fit Naive Bayes Classification on train set with cross validation. 
+		Run Naive Bayes Classificaiton on test set. Return results
+		""" """
+
+		# Transform train and test data
+		count_vect = CountVectorizer(ngram_range=(ngram[0],ngram[len(ngram)-1]))
+
+		X_train_counts = count_vect.fit_transform(X_train)
+		tfidf_transformer = TfidfTransformer()
+		X_train_tfidf = tfidf_transformer.fit_transform(X_train_counts)
+
+		X_new_counts = count_vect.transform(X_test)
+		X_new_tfidf = tfidf_transformer.transform(X_new_counts)
+
+		###print "** Fitting Naive Bayes classifier.."
+
+		# Apply cross validation
+		cv = cross_validation.KFold(X_train_tfidf.shape[0], n_folds=k, indices=True)
+
+		cv_naivebayes = []
+		for traincv, testcv in cv:
+			clf_cv = MultinomialNB()
+			clf_cv.fit(X_train_tfidf[traincv], y_train[traincv])
+			y_test_cv, y_pred_cv = y_train[testcv], clf_cv.predict(X_train_tfidf[testcv])
+			nb_tuple = (f1_score(y_test_cv, y_pred_cv), clf_cv)
+			cv_naivebayes.append(nb_tuple)
+		
+		# Get best classifier
+		(f1, best_clf) = max(cv_naivebayes,key=operator.itemgetter(0))
+		
+
+		###print "** Run Naive Bayes classifier.."
+		y_true, y_pred = y_test, best_clf.predict(X_new_tfidf)
+
+		tuples = precision_recall_fscore_support(y_true, y_pred)
+		return (tuples, 'N.A.', 'N.A.')
 
 	def nb_create_traintestdata(self, array, ngram, posbow, negbow, indexset,mode, **kwargs):
 
@@ -156,7 +231,7 @@ class Main(object):
 
 
 	def get_bowtweet(self, tweet, bow, ngram_array):
-		""" Get modified tweet with only words in bow"""
+		""" """Get modified tweet with only words in bow""""""
 		tuple_array = self.splitbow(bow, ngram_array)
 		
 		listtweets = []
@@ -187,7 +262,7 @@ class Main(object):
 		return new_tweet
 			
 	def splitbow(self, bow, ngramtypes_array):
-		""" Split BOW in arrays of tuples with same length """
+		""" """Split BOW in arrays of tuples with same length """"""
 		splitted_bowkeys = []
 		for ngram in ngramtypes_array:
 			ngram_array = []
@@ -198,78 +273,7 @@ class Main(object):
 			splitted_bowkeys.append(test)
 
 		return splitted_bowkeys
-
-	
-	def start_naivebayes_classification(self, mode, ngram, minborder, maxborder, nr):
-		""" Run Naive Bayes classifier """
-
-		traintweets = []
-		y_train = []
-		testtweets = []
-		y_test = []
-
-		array = self.get_preprocessed_array(mode)
-
-
-		# Initialize Bag of Words Object
-		bowObject = BagOfWords(array, self.tweet_class, self.trainset)
-
-
-		negbow, posbow = self.collect_bow(array, ngram, minborder, maxborder, nr/2)
-
-		allwords = False
-		if 'allwords' in mode:
-			allwords = True
-		self.train_tweetclasses, self.train_vectors = self.nb_create_traintestdata(array, ngram, posbow, negbow, self.trainset, mode, allwords=allwords)
-		self.test_tweetclasses, self.test_vectors = self.nb_create_traintestdata(array, ngram, posbow, negbow, self.testset, mode, allwords=allwords)
-
-		# Run Naive Bayes
-		results = self.run_naivebayes(np.array(self.train_vectors), np.array(self.train_tweetclasses), np.array(self.test_vectors), np.array(self.test_tweetclasses),ngram, self.CROSS_VALIDATION)
-
-		#results = self.run_naivebayes(np.array(train_tweets), np.array(train_classes), np.array(test_tweets), np.array(test_classes))
-
-		return results
-
-
-	def run_naivebayes(self, X_train, y_train, X_test, y_test,ngram, k):
-		""" Fit Naive Bayes Classification on train set with cross validation. 
-		Run Naive Bayes Classificaiton on test set. Return results
-		"""
-
-		# Transform train and test data
-		count_vect = CountVectorizer(ngram_range=(ngram[0],ngram[len(ngram)-1]))
-
-		X_train_counts = count_vect.fit_transform(X_train)
-		tfidf_transformer = TfidfTransformer()
-		X_train_tfidf = tfidf_transformer.fit_transform(X_train_counts)
-
-		X_new_counts = count_vect.transform(X_test)
-		X_new_tfidf = tfidf_transformer.transform(X_new_counts)
-
-		###print "** Fitting Naive Bayes classifier.."
-
-		# Apply cross validation
-		cv = cross_validation.KFold(X_train_tfidf.shape[0], n_folds=k, indices=True)
-
-		cv_naivebayes = []
-		for traincv, testcv in cv:
-			clf_cv = MultinomialNB()
-			clf_cv.fit(X_train_tfidf[traincv], y_train[traincv])
-			y_test_cv, y_pred_cv = y_train[testcv], clf_cv.predict(X_train_tfidf[testcv])
-			nb_tuple = (f1_score(y_test_cv, y_pred_cv), clf_cv)
-			cv_naivebayes.append(nb_tuple)
-		
-		# Get best classifier
-		(f1, best_clf) = max(cv_naivebayes,key=operator.itemgetter(0))
-		
-
-		###print "** Run Naive Bayes classifier.."
-		y_true, y_pred = y_test, best_clf.predict(X_new_tfidf)
-
-		tuples = precision_recall_fscore_support(y_true, y_pred)
-		return (tuples, 'N.A.', 'N.A.')
-
-
+	"""
 
 
 	def compare_dummy_classification(self):
@@ -488,7 +492,7 @@ m = Main(True, "frog lemma pos stem token --debug")
 #DONE		'svm token pn-neutral' , 'svm token posneg', 'svm token pos1', 'svm token neg1','svm token freq'
 #DONE		'svm stem pn-neutral' , 'svm stem posneg', 'svm stem pos1', 'svm stem neg1','svm stem freq',
 #DONE		'svm lemma pn-neutral' , 'svm lemma posneg', 'svm lemma pos1', 'svm lemma neg1','svm lemma freq'
-modes = ['svm lemma posneg' ]
+modes = ['nb lemma posneg' ]
 #DONE 'svm pos posneg', 'svm pos pos1', 'svm pos neg1','svm pos freq']
 
 #modes = ['nb token posneg']
