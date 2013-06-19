@@ -2,10 +2,10 @@
 import pickle
 import csv
 
-def dump_to_file(filename, array):
+def dump_to_file(filename, dumpobject):
 	"""	Dump array to file """
 	f = file(filename, "w")
-	pickle.dump(array, f)
+	pickle.dump(dumpobject, f)
 
 def unfold_tuples(dictionary):
 	""" Unfold all tuples in dictionary to single items"""
