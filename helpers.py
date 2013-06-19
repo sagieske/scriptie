@@ -43,3 +43,14 @@ def read_from_file(filename):
 	pickle_object = pickle.load(f)
 	return pickle_object
 
+def write_classification_to_tweetfile(classificationarray, inputfile, outputfile):
+	""" Write classification for tweet in csv file containing tweets """
+	newdata = csv.reader(open(inputfile, 'rU'), delimiter=self.DELIMITER)
+	output = csv.writer(open(outpufile, 'wb'), delimiter=self.DELIMITER)
+
+	for i, row in enumerate(newdata):
+		newrow = row[:5]
+		print newrow
+		newrow.append(classificationarray[i])
+		output.writerow(newrow)
+
