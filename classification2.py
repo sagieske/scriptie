@@ -1,42 +1,21 @@
 import csv											# used for import csv tweets
 import random										# used for train/test set creation
-import nltk											# used for tokenization
 import os											# used for calling Frog in new terminal
 import operator
 import time											# used for timer
-from pynlpl.clients.frogclient import FrogClient	# used for Frog client
-import subprocess									# used for calling Frog in new terminal
-import signal										# used for calling Frog in new terminal
-import math	 
-import pickle										# write and load list to file
-import nltk											# used for stemmer
-from preprocessing import Preprocessing
-from bagofwords import BagOfWords
-from sklearn import svm
-from sklearn.datasets import load_svmlight_file
-import numpy as np
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import precision_score
-from sklearn.metrics import recall_score
-from sklearn.metrics import f1_score
-from sklearn import cross_validation
-from sklearn.grid_search import GridSearchCV
-from sklearn.svm import SVC
-from sklearn.metrics import classification_report
-from sklearn import metrics
+#from pynlpl.clients.frogclient import FrogClient	# used for Frog client
+#import subprocess									# used for calling Frog in new terminal
+#import signal										# used for calling Frog in new terminal
+#import math	 
+#import numpy as np
 from sklearn.dummy import DummyClassifier
-from sklearn import preprocessing
-from sklearn.metrics import confusion_matrix
 from sklearn.metrics import precision_recall_fscore_support
-from sklearn.naive_bayes import MultinomialNB
-
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.feature_extraction.text import TfidfTransformer
-
 
 import helpers
 from start_svm import Start_SVM
 from start_nb import Start_NB
+from preprocessing import Preprocessing
+from bagofwords import BagOfWords
 
 
 class Main(object):
@@ -78,9 +57,6 @@ class Main(object):
 
 	# Cross validation folds
 	CROSS_VALIDATION = 5
-
-	# Scaler object
-	scaler = None
 
 	def __init__(self, testingmode, mode):
 		""" Initialize tweets, preprocess and create train/test sets"""
@@ -350,7 +326,7 @@ m = Main(True, "frog lemma pos stem token --debug")
 #DONE		'svm token pn-neutral' , 'svm token posneg', 'svm token pos1', 'svm token neg1','svm token freq'
 #DONE		'svm stem pn-neutral' , 'svm stem posneg', 'svm stem pos1', 'svm stem neg1','svm stem freq',
 #DONE		'svm lemma pn-neutral' , 'svm lemma posneg', 'svm lemma pos1', 'svm lemma neg1','svm lemma freq'
-modes = ['nb lemma posneg' ]
+modes = ['svm lemma posneg' ]
 #DONE 'svm pos posneg', 'svm pos pos1', 'svm pos neg1','svm pos freq']
 
 #modes = ['nb token posneg']
