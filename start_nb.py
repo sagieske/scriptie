@@ -14,7 +14,9 @@ class Start_NB(object):
 
 	#array = []
 	classifier = None		# Classifier of object
-	transformer = None			# Transformer for data
+	transformer = None		# Transformer for data
+	vectorizer = None		# Vectorizer for data
+	
 	traintweets = []
 	train_classes = []
 	testtweets = []
@@ -32,6 +34,12 @@ class Start_NB(object):
 		self.posbow, self.negbow = tuplebows
 		self.ngrams = ngrams
 
+	def start_classification(self, new_data, allwords):
+		""" Start classification of twitter using classifier. New_data is array of tweets divided in tokens"""
+		new_data_scaled = self.nb_create_inputdata(new_data, allwords)	
+		y_pred = self.classifier.predict(new_data_scaled)
+		return y_pred
+
 	def start_naivebayes_testing(self, mode, minborder, maxborder, lenbow):
 		""" Start classification training of Naive Bayes"""
 		self.mode = mode
@@ -45,7 +53,14 @@ class Start_NB(object):
 		self.test_tweetclasses, self.test_vectors = self.nb_create_traintestdata(self.pr_array, self.testset, allwords=allwords)
 
 		# Run Naive Bayes
-		results = self.run_naivebayes(np.array(self.train_vectors), np.array(self.train_tweetclasses), np.array(self.test_vectors), np.array(self.test_tweetclasses), self.CROSS_VALIDATION)
+		results = self.run_naivebayes(self.train_vectors, np.array(self.train_tweetclasses), self.test_vectors, np.array(self.test_tweetclasses), self.CROSS_VALIDATION)
+
+		"""
+		tweets = []
+		for index in self.testset:
+			tweets.append(self.pr_array[index])
+		print self.start_classification(tweets, allwords=allwords)
+		"""
 
 		return results
 
@@ -55,41 +70,31 @@ class Start_NB(object):
 		Run Naive Bayes Classificaiton on test set. Return results
 		"""
 
-		# Transform train and test data
-		count_vect = CountVectorizer(ngram_range=(self.ngrams[0],self.ngrams[len(self.ngrams)-1]))
-
-		X_train_counts = count_vect.fit_transform(X_train)
-		self.transformer = TfidfTransformer()
-		X_train_tfidf = self.transformer.fit_transform(X_train_counts)
-
-		X_new_counts = count_vect.transform(X_test)
-		X_new_tfidf = self.transformer.transform(X_new_counts)
-
 		###print "** Fitting Naive Bayes classifier.."
 
-		# Apply cross validation
-		cv = cross_validation.KFold(X_train_tfidf.shape[0], n_folds=k, indices=True)
-
+		# Cross validation
+		cv = cross_validation.KFold(X_train.shape[0], n_folds=k, indices=True)
 		cv_naivebayes = []
 		for traincv, testcv in cv:
 			clf_cv = MultinomialNB()
-			clf_cv.fit(X_train_tfidf[traincv], train_classes[traincv])
-			test_classes_cv, y_pred_cv = train_classes[testcv], clf_cv.predict(X_train_tfidf[testcv])
+			clf_cv.fit(X_train[traincv], train_classes[traincv])
+			test_classes_cv, y_pred_cv = train_classes[testcv], clf_cv.predict(X_train[testcv])
 			nb_tuple = (metrics.f1_score(test_classes_cv, y_pred_cv), clf_cv)
 			cv_naivebayes.append(nb_tuple)
 		
 		# Get best classifier
 		(f1, best_clf) = max(cv_naivebayes,key=operator.itemgetter(0))
 		
+		self.classifier = best_clf
 
 		###print "** Run Naive Bayes classifier.."
-		y_true, y_pred = test_classes, best_clf.predict(X_new_tfidf)
+		y_true, y_pred = test_classes, best_clf.predict(X_test)
 
 		tuples = metrics.precision_recall_fscore_support(y_true, y_pred)
 		return (tuples, 'N.A.', 'N.A.')
 
 	def nb_create_traintestdata(self, array, indexset, **kwargs):
-		""""  """	
+		""" Creates dataset needed for training/testing of Naive Bayes"""
 		allwords = kwargs.get('allwords', False)
 		tweets = []
 		classes = []
@@ -109,7 +114,8 @@ class Start_NB(object):
 
 
 	def nb_create_inputdata(self, tweets, allwords):
-		""" """
+		""" Create inputdata for Naive Bayes classifier. Return data
+		"""
 
 		# Select BOW type
 		if ('posneg' in self.mode):
@@ -126,30 +132,24 @@ class Start_NB(object):
 			for item in tweets:
 				bowtweet = self.get_bowtweet(item, bow)
 				inputdata.append(bowtweet)
-			
-		
-		"""
-		# Use all words in tweets
-		if ( allwords ):
-			for index in indexset:
-				tweets.append(' '.join(self.pr_array[index]))
-				classes.append(self.tweetclass[index])
+
+		# Convert collection to matrix of token counts
+		if self.vectorizer is None:
+			vectorizer = CountVectorizer(ngram_range=(self.ngrams[0],self.ngrams[len(self.ngrams)-1]))
+			self.vectorizer = vectorizer.fit(inputdata)
+
+		X_train_counts = self.vectorizer.transform(inputdata)
+
+		# Transform count matrix to normalized tfidf representation
+		self.transformer = None
+		if self.transformer is None:
+			tfidf_transformer = TfidfTransformer()
+			self.transformer = tfidf_transformer.fit(X_train_counts)
+
+		inputdata_fitted = self.transformer.transform(X_train_counts)
 
 
-
-		
-		# Use words occuring in BOW of tweet
-		else:
-			for index in indexset:
-				tweet = array[index]
-				bowtweet = self.get_bowtweet(tweet, bow)
-				tweets.append(bowtweet)
-				classes.append(self.tweetclass[index])
-
-		return (classes, tweets)
-		"""
-
-		return inputdata
+		return inputdata_fitted
 
 
 	def get_bowtweet(self, tweet, bow):
@@ -195,3 +195,15 @@ class Start_NB(object):
 			splitted_bowkeys.append(test)
 
 		return splitted_bowkeys
+
+	def load_classifier(self, filename):
+		""" Load classifier and scaler from file and set as class variables"""
+		(classifier, transformer, vectorizer) = helpers.read_from_file(filename)
+		self.classifier = classifier
+		self.scaler = scaler
+		
+	def dump_classifier(self, filename):
+		""" Dump classifier and scaler to file """
+		dumptuple = (self.classifier, self.transformer, self.vectorizer)
+		helpers.dump_to_file(filename, dumptuple)
+
