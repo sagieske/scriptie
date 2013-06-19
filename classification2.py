@@ -35,7 +35,7 @@ from sklearn.feature_extraction.text import TfidfTransformer
 
 
 import helpers
-
+from start_svm import Start_SVM
 
 
 class Main(object):
@@ -78,18 +78,23 @@ class Main(object):
 	# Cross validation folds
 	CROSS_VALIDATION = 5
 
-	def __init__(self, mode):
+	# Scaler object
+	scaler = None
+
+	def __init__(self, testingmode, mode):
 		""" Initialize tweets, preprocess and create train/test sets"""
 		self.mode = mode
   		#self.debug = "--debug" in mode
   		#self.dump = "--write" in mode
 		self.debug = True
 		self.dump = False
+		self.testingmode = testingmode
 
 		self.initialize()
 		self.preprocess_tweets()
-		self.create_sets()
-		self.count_classes()
+		if ( self.testingmode ):
+			self.create_sets()
+			self.count_classes()
 
 	def initialize(self):
 		""" Initializes tweet and class sets """
@@ -101,7 +106,8 @@ class Main(object):
 				# Get tweet and class of tweet 
 				if (self.class_dict.get(row[5].upper()) is not None):
 					self.tweets[i-1] = row[3]
-					self.tweet_class[i-1] = self.class_dict.get(row[5].upper())
+					if ( self.testingmode ):
+						self.tweet_class[i-1] = self.class_dict.get(row[5].upper())
 
 	def start_svm_classification(self, mode, ngrambow, minborder, maxborder, nr):
 		""" Runs classification learning"""
@@ -109,14 +115,21 @@ class Main(object):
 		array = self.get_preprocessed_array(mode)
 		negbow, posbow = self.collect_bow(array, ngrambow, minborder, maxborder, nr/2)
 		totalbow = dict(posbow.items() + negbow.items())
+		self.scaler = None
 
+
+		"""
 		# Create train & test data (classes, vectors)
-		self.train_tweetclasses, self.train_vectors, trainscaler = self.svm_create_traintestdata(array, posbow, negbow, self.trainset, mode)
-		self.test_tweetclasses, self.test_vectors, trainscaler = self.svm_create_traintestdata(array, posbow, negbow, self.testset, mode, scaler=trainscaler)
+		self.train_tweetclasses, self.train_vectors = self.svm_create_traintestdata(array, posbow, negbow, self.trainset, mode)
+		self.test_tweetclasses, self.test_vectors = self.svm_create_traintestdata(array, posbow, negbow, self.testset, mode)
 
 		# Run SVM
 		results = self.run_svm(np.array(self.train_vectors), np.array(self.train_tweetclasses), np.array(self.test_vectors), np.array(self.test_tweetclasses), self.CROSS_VALIDATION)
+		"""
+		tuplebows = negbow, posbow 
+		svmObject = Start_SVM(array, self.tweet_class, self.trainset, self.testset, True, tuplebows, 5)
 
+		results = svmObject.start_svm_testing(mode, minborder, maxborder, nr)
 		return results
 
 	def run_svm(self, X_train, y_train, X_test, y_test, k):
@@ -133,7 +146,7 @@ class Main(object):
 		score_func = metrics.f1_score
 		clf = GridSearchCV(SVC(), param_grid, score_func=score_func,  n_jobs=-1 )
 
-		print "** Fitting SVM classifier.."
+		###print "** Fitting SVM classifier.."
 		clf.fit(X_train, y_train, cv=k)
 
 		# Get best parameters
@@ -142,7 +155,7 @@ class Main(object):
 		c = dict_param['C']
 
 		# Get scores
-		print "** Run SVM classifier.."
+		###print "** Run SVM classifier.."
 		y_true, y_pred = y_test, clf.predict(X_test)
 		tuples = precision_recall_fscore_support(y_true, y_pred)
 
@@ -196,7 +209,11 @@ class Main(object):
 		# Get array of Booleans for words occuring in BOW
 		for index_n, ngram in enumerate(ngram_array):
 			for index_t, word in enumerate(tweet):
-				wordstring = ' '.join(tweet[index_t:index_t+ngram])
+				wordarray = []
+				for item in tweet[index_t:index_t+ngram]:
+					word = ''.join([x for x in item if ord(x) <128])		# Avoid problems with ascii values
+					wordarray.append(word)
+				wordstring = ' '.join(wordarray)
 				if wordstring in tuple_array[index_n]:
 					for i in range(index_t,index_t+ngram):
 						listtweets[index_n][i] = True
@@ -244,8 +261,6 @@ class Main(object):
 		allwords = False
 		if 'allwords' in mode:
 			allwords = True
-		#train_classes, train_tweets = self.nb_create_traintestdata(array, ngram, posbow, negbow, self.trainset, mode)
-		#test_classes, test_tweets = self.nb_create_traintestdata(array, ngram, posbow, negbow, self.testset, mode)
 		self.train_tweetclasses, self.train_vectors = self.nb_create_traintestdata(array, ngram, posbow, negbow, self.trainset, mode, allwords=allwords)
 		self.test_tweetclasses, self.test_vectors = self.nb_create_traintestdata(array, ngram, posbow, negbow, self.testset, mode, allwords=allwords)
 
@@ -272,7 +287,7 @@ class Main(object):
 		X_new_counts = count_vect.transform(X_test)
 		X_new_tfidf = tfidf_transformer.transform(X_new_counts)
 
-		print "** Fitting Naive Bayes classifier.."
+		###print "** Fitting Naive Bayes classifier.."
 
 		# Apply cross validation
 		cv = cross_validation.KFold(X_train_tfidf.shape[0], n_folds=k, indices=True)
@@ -289,7 +304,7 @@ class Main(object):
 		(f1, best_clf) = max(cv_naivebayes,key=operator.itemgetter(0))
 		
 
-		print "** Run Naive Bayes classifier.."
+		###print "** Run Naive Bayes classifier.."
 		y_true, y_pred = y_test, best_clf.predict(X_new_tfidf)
 
 		tuples = precision_recall_fscore_support(y_true, y_pred)
@@ -331,8 +346,6 @@ class Main(object):
 		dummy_results.append(resulttuple2)
 
 		return dummy_results
-		
-
 
 	def svm_create_traintestdata(self, array, posbow, negbow, indexset,mode, **kwargs):
 		""" creates dataset needed for training/testing of SVM"""
@@ -340,10 +353,20 @@ class Main(object):
 		vectest = []
 		class_set = []
 		tweet_class = []
+		tweetarray = []
 		for tweetindex in indexset:
 			tweet = array[tweetindex]
+			tweetarray.append(tweet)
 			class_set.append(self.tweet_class[tweetindex])
 
+		X_scaled = self.svm_create_vectorarray(tweetarray, posbow, negbow, self.scaler, mode)
+
+		return (class_set, X_scaled)		
+
+	def svm_create_vectorarray(self, array, posbow, negbow, scaler, mode):
+		""" Create vector array for classification, scale appropriate"""
+		vecformat_array = []
+		for tweet in array:
 			# Different vectormodes
 			if ('pn-neutral' in mode):
 				vec = self.tweet_to_vector_posnegneutral(tweet, posbow, negbow)
@@ -359,18 +382,18 @@ class Main(object):
 				vec =  self.tweet_to_vector(tweet, totalbow, False)
 
 			vecformat_array.append(vec)
-
 		X = np.array(vecformat_array)
 
 		# Scale train and test data with same scaler
-		scaler = kwargs.get('scaler', None)
-		if scaler is None:
+		#scaler = kwargs.get('scaler', None)
+		if self.scaler is None:
 			scaler = preprocessing.StandardScaler().fit(X)
+			self.scaler = scaler
 
 
-		X_scaled = scaler.transform(X)  
+		X_scaled = self.scaler.transform(X)  
 
-		return (class_set, X_scaled, scaler)
+		return X_scaled
 
 
 	def collect_bow(self, array, ngram_types_array, posborder, negborder, nr):
@@ -561,45 +584,52 @@ class Main(object):
 		""" Run classifications according to input and write results to file."""
 		begin = time.time()
 
-		m.write_begin()
-
+		# Run classifications according to parameters
 		for mode in modes:
+			print "-- RUN NEW MODE: %s.." % mode
 			for ngram in ngramarray:
+				print "-- RUN NEW NGRAM: %s.." % str(ngram)
 				for lenbow in lenbows:
 					resulttuple = None
 					if 'svm' in mode:
+							
 						(result, gamma, c) = self.start_svm_classification(mode, ngram, 0,0, lenbow)
 						resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
+
 					if 'nb' in mode:
 						(result, gamma, c) = self.start_naivebayes_classification(mode, ngram, 0, 0, lenbow)
 						resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
-					m.write_results_to_file(resulttuple)
+					print "ONE"
+					self.write_results_to_file(resulttuple)
 
-		self.CROSS_VALIDATION = 10
-
-		for mode in modes:
-			for ngram in ngramarray:
-				for lenbow in lenbows:
-					resulttuple = None
-					if 'svm' in mode:
-						(result, gamma, c) = self.start_svm_classification(mode, ngram, 0,0, lenbow)
-						resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
-					if 'nb' in mode:
-						(result, gamma, c) = self.start_naivebayes_classification(mode, ngram, 0, 0, lenbow)
-						resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
-					m.write_results_to_file(resulttuple)
-
-		dummy_result_array = self.compare_dummy_classification()
-		m.write_results_to_file(dummy_result_array)
+		# Run dummy classification
+		#dummy_result_array = self.compare_dummy_classification()
+		#self.write_results_to_file(dummy_result_array)
 
 		print "TIME TAKEN: %f seconds" % (time.time() - begin)
 
 
 # call main with mode
-m = Main("frog lemma pos stem token --debug")
+m = Main(True, "frog lemma pos stem token --debug")
  
+#classifiers = ['nb', 'svm']
+#types_preprocess = ['token', 'stem', 'lemma', 'pos']
 
-modes = ['svm lemma posneg','nb lemma posneg', 'nb lemma posneg allwords']
-ngramarray = [[1,2], [1,2,3]]
-lenbows = [150,200]
+#['nb token posneg', 'nb token pos1', 'nb token neg1',
+#DONE		'nb stem posneg', 'nb stem pos1', 'nb stem neg1',
+#DONE		'nb lemma posneg', 'nb lemma pos1', 'nb lemma neg1',
+#DONE		'nb pos posneg', 'nb pos pos1', 'nb pos neg1'
+#DONE		'svm token pn-neutral' , 'svm token posneg', 'svm token pos1', 'svm token neg1','svm token freq'
+#DONE		'svm stem pn-neutral' , 'svm stem posneg', 'svm stem pos1', 'svm stem neg1','svm stem freq',
+#DONE		'svm lemma pn-neutral' , 'svm lemma posneg', 'svm lemma pos1', 'svm lemma neg1','svm lemma freq'
+modes = ['svm lemma posneg' ]
+#DONE 'svm pos posneg', 'svm pos pos1', 'svm pos neg1','svm pos freq']
+
+#modes = ['nb token posneg']
+ngramarray = [[1],[1,2], [1,2,3], [2,3]]
+lenbows = [50, 74, 100, 124, 150, 174, 200]
+#modes = ['svm token freq']
+#ngramarray = [[1,2,3]]
+#lenbows = [300, 500]
+#m.write_begin()
 m.run_classification(modes, ngramarray, lenbows)
