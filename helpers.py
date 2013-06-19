@@ -45,8 +45,9 @@ def read_from_file(filename):
 
 def write_classification_to_tweetfile(classificationarray, inputfile, outputfile):
 	""" Write classification for tweet in csv file containing tweets """
-	newdata = csv.reader(open(inputfile, 'rU'), delimiter=self.DELIMITER)
-	output = csv.writer(open(outpufile, 'wb'), delimiter=self.DELIMITER)
+	DELIMITER = "\t"
+	newdata = csv.reader(open(inputfile, 'rU'), delimiter=DELIMITER)
+	output = csv.writer(open(outpufile, 'wb'), delimiter=DELIMITER)
 
 	for i, row in enumerate(newdata):
 		newrow = row[:5]
