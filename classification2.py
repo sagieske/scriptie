@@ -113,53 +113,12 @@ class Main(object):
 		""" Runs classification learning"""
 		# Create BOW
 		array = self.get_preprocessed_array(mode)
-		negbow, posbow = self.collect_bow(array, ngrambow, minborder, maxborder, nr/2)
-		totalbow = dict(posbow.items() + negbow.items())
-		self.scaler = None
+		tuplebows = self.collect_bow(array, ngrambow, minborder, maxborder, nr/2)
 
-
-		"""
-		# Create train & test data (classes, vectors)
-		self.train_tweetclasses, self.train_vectors = self.svm_create_traintestdata(array, posbow, negbow, self.trainset, mode)
-		self.test_tweetclasses, self.test_vectors = self.svm_create_traintestdata(array, posbow, negbow, self.testset, mode)
-
-		# Run SVM
-		results = self.run_svm(np.array(self.train_vectors), np.array(self.train_tweetclasses), np.array(self.test_vectors), np.array(self.test_tweetclasses), self.CROSS_VALIDATION)
-		"""
-		tuplebows = negbow, posbow 
 		svmObject = Start_SVM(array, self.tweet_class, self.trainset, self.testset, True, tuplebows, 5)
-
 		results = svmObject.start_svm_testing(mode, minborder, maxborder, nr)
+
 		return results
-
-	def run_svm(self, X_train, y_train, X_test, y_test, k):
-		""" Run SVM classifier. Configure parameters for SVM using grid search, then fit with cross valiation.
-		Then predict test set. Return best parameters and scores.
-		"""
-		clf = svm.SVC()
-
-		# Parameter grid
-		param_grid = [
-		 {'C': np.logspace(1,5,5), 'gamma': np.logspace(-3,0,5), 'kernel': ['rbf']}
-		]
-
-		score_func = metrics.f1_score
-		clf = GridSearchCV(SVC(), param_grid, score_func=score_func,  n_jobs=-1 )
-
-		###print "** Fitting SVM classifier.."
-		clf.fit(X_train, y_train, cv=k)
-
-		# Get best parameters
-		dict_param = clf.best_params_
-		gamma1 = dict_param['gamma']
-		c = dict_param['C']
-
-		# Get scores
-		###print "** Run SVM classifier.."
-		y_true, y_pred = y_test, clf.predict(X_test)
-		tuples = precision_recall_fscore_support(y_true, y_pred)
-
-		return (tuples, gamma1, c)
 
 	def nb_create_traintestdata(self, array, ngram, posbow, negbow, indexset,mode, **kwargs):
 
@@ -346,54 +305,6 @@ class Main(object):
 		dummy_results.append(resulttuple2)
 
 		return dummy_results
-
-	def svm_create_traintestdata(self, array, posbow, negbow, indexset,mode, **kwargs):
-		""" creates dataset needed for training/testing of SVM"""
-		vecformat_array = []
-		vectest = []
-		class_set = []
-		tweet_class = []
-		tweetarray = []
-		for tweetindex in indexset:
-			tweet = array[tweetindex]
-			tweetarray.append(tweet)
-			class_set.append(self.tweet_class[tweetindex])
-
-		X_scaled = self.svm_create_vectorarray(tweetarray, posbow, negbow, self.scaler, mode)
-
-		return (class_set, X_scaled)		
-
-	def svm_create_vectorarray(self, array, posbow, negbow, scaler, mode):
-		""" Create vector array for classification, scale appropriate"""
-		vecformat_array = []
-		for tweet in array:
-			# Different vectormodes
-			if ('pn-neutral' in mode):
-				vec = self.tweet_to_vector_posnegneutral(tweet, posbow, negbow)
-			if ('posneg' in mode):
-				totalbow = dict(posbow.items() + negbow.items())
-				vec =  self.tweet_to_vector(tweet, totalbow, True)
-			if ('pos1' in mode):
-				vec =  self.tweet_to_vector(tweet, posbow, True)
-			if ('neg1' in mode):
-				vec =  self.tweet_to_vector(tweet, negbow, True)
-			if ('freq' in mode):
-				totalbow = dict(posbow.items() + negbow.items())
-				vec =  self.tweet_to_vector(tweet, totalbow, False)
-
-			vecformat_array.append(vec)
-		X = np.array(vecformat_array)
-
-		# Scale train and test data with same scaler
-		#scaler = kwargs.get('scaler', None)
-		if self.scaler is None:
-			scaler = preprocessing.StandardScaler().fit(X)
-			self.scaler = scaler
-
-
-		X_scaled = self.scaler.transform(X)  
-
-		return X_scaled
 
 
 	def collect_bow(self, array, ngram_types_array, posborder, negborder, nr):
