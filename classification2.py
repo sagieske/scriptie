@@ -25,6 +25,7 @@ class Main(object):
 	# Input file reader
 	DELIMITER = "\t"
 	data = csv.reader(open("2000test_annotated_v2.csv", 'rU'), delimiter=DELIMITER)
+	newdata = csv.reader(open("day_output.csv", 'rU'), delimiter=DELIMITER)
 
 	# Dictionary for class, classify unkown into non-activity
 	class_dict = {"Y": 0, "N": 1, "U": 0}
@@ -68,10 +69,11 @@ class Main(object):
 		self.testingmode = testingmode
 
 		self.initialize()
-		self.preprocess_tweets()
+		self.preprocess_tweets(self.mode,self.tweets)
 		if ( self.testingmode ):
 			self.create_sets()
-			self.count_classes()
+			values = self.tweet_class.values()
+			self.count_classes(values)
 
 	def initialize(self):
 		""" Initializes tweet and class sets """
@@ -85,6 +87,37 @@ class Main(object):
 					self.tweets[i-1] = row[3]
 					if ( self.testingmode ):
 						self.tweet_class[i-1] = self.class_dict.get(row[5].upper())
+
+
+
+		
+	def get_activity_tweets(self, mode, ngrambow, nr):
+		""" Extract new activity tweets from file"""
+
+		# Get tweets
+		all_tweets = {}
+		index = 0
+		for i, row in enumerate(self.newdata):
+			if( row[5] == '' and row[0].isdigit()):
+				all_tweets[index] = row[3]
+				index += 1
+
+		# Create classifier
+		print "START SVM"
+		(array, tuplebows) = self.setup_input_classification(mode, ngrambow, 0,0, nr)
+		svmObject = Start_SVM(array, self.tweet_class, self.trainset, self.testset, True, tuplebows, self.CROSS_VALIDATION)
+		results = svmObject.start_svm_testing(mode, 0, 0, nr)
+
+		print "PREPROCESS TWEETS"
+		self.preprocess_tweets(mode,all_tweets)
+		array = self.get_preprocessed_array(mode)
+
+		# Classify tweets
+		prediction = svmObject.start_classification(array)
+
+		self.count_classes(prediction.tolist())
+		helpers.write_classification_to_tweetfile(prediction, "day_output.csv", "day_output_class.csv")
+
 
 	def start_svm_classification(self, array, mode, ngrambow, minborder, maxborder, nr, tuplebows):
 		""" Start SVM classification learning. Return results (resultscores_tuple, gamma1, c)"""
@@ -102,18 +135,6 @@ class Main(object):
 
 		return results
 
-
-	#def start_naivebayes_classification(self, mode, ngrambow, minborder, maxborder, nr):
-		""" Start Naive Bayes classification learning. Return results (resultscores_tuple, N.A., N.A.)"""
-	"""
-		array = self.get_preprocessed_array(mode)
-		tuplebows = self.collect_bow(array, ngrambow, minborder, maxborder, nr/2)
-
-		nbObject = Start_NB(array, self.tweet_class, self.trainset, self.testset, True, tuplebows, ngrambow, self.CROSS_VALIDATION)
-		results = nbObject.start_naivebayes_testing(mode, minborder, maxborder, nr)
-
-		return results
-	"""
 
 	def setup_input_classification(self, mode, ngrambow, minborder, maxborder, nr):
 		""" Set up array and BOWs used for classification"""
@@ -188,17 +209,18 @@ class Main(object):
 		else:
 			return []
 
-	def preprocess_tweets(self):
+	def preprocess_tweets(self, mode, tweets_dict):
 		""" Process tweets according to mode and set arrays """
-		processObject = Preprocessing(self.mode, self.tweets)
+		processObject = Preprocessing(mode, tweets_dict)
+		print len(tweets_dict)
 		processObject.preprocess_tweets()
-		if ( "stem" in self.mode):
+		if ( "stem" in mode):
 			self.stemmed_tweets_array = processObject.stemmed_tweets_array
-		if ( "token" in self.mode):
+		if ( "token" in mode):
 			self.tokenized_tweets_array = processObject.tokenized_tweets_array
-		if ( "pos" in self.mode): 
+		if ( "pos" in mode): 
 			self.pos_tweets_array = processObject.pos_tweets_array
-		if ( "lemma" in self.mode):
+		if ( "lemma" in mode):
 			self.lemmatized_tweets_array = processObject.lemmatized_tweets_array
 
 
@@ -238,15 +260,14 @@ class Main(object):
 
 
 
-	def count_classes(self):
+	def count_classes(self, tweet_class_array):
 		""" Counts occurance of each class
 		"""
-		values = self.tweet_class.values()
-		total = len(values)
+		total = len(tweet_class_array)
 	
 		# Count occurances of classes
-	 	activity_count = values.count(0)
-		nonactivity_count = values.count(1)
+	 	activity_count = tweet_class_array.count(0)
+		nonactivity_count = tweet_class_array.count(1)
 
 		# Print
 		print ">> Statistics:"
@@ -326,7 +347,7 @@ class Main(object):
 
 # call main with mode
 m = Main(True, "frog lemma pos stem token --debug")
- 
+m.get_activity_tweets('svm token posneg', [1,2], 100)
 #classifiers = ['nb', 'svm']
 #types_preprocess = ['token', 'stem', 'lemma', 'pos']
 
@@ -347,4 +368,4 @@ lenbows = [50, 74, 100, 124, 150, 174, 200]
 #ngramarray = [[1,2,3]]
 #lenbows = [300, 500]
 #m.write_begin()
-m.run_classification(modes, ngramarray, lenbows)
+#m.run_classification(modes, ngramarray, lenbows)
