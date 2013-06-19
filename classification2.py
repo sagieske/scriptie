@@ -86,32 +86,44 @@ class Main(object):
 					if ( self.testingmode ):
 						self.tweet_class[i-1] = self.class_dict.get(row[5].upper())
 
-	def start_svm_classification(self, mode, ngrambow, minborder, maxborder, nr):
-		""" Runs classification learning"""
-		# Create BOW
-		array = self.get_preprocessed_array(mode)
-		tuplebows = self.collect_bow(array, ngrambow, minborder, maxborder, nr/2)
+	def start_svm_classification(self, array, mode, ngrambow, minborder, maxborder, nr, tuplebows):
+		""" Start SVM classification learning. Return results (resultscores_tuple, gamma1, c)"""
 
 		svmObject = Start_SVM(array, self.tweet_class, self.trainset, self.testset, True, tuplebows, self.CROSS_VALIDATION)
 		results = svmObject.start_svm_testing(mode, minborder, maxborder, nr)
 
 		return results
 
+	def start_naivebayes_classification(self, array, mode, ngrambow, minborder, maxborder, nr, tuplebows):
+		""" Start Naive Bayes classification learning. Return results (resultscores_tuple, N.A., N.A.)"""
 
-	
-	def start_naivebayes_classification(self, mode, ngrambow, minborder, maxborder, nr):
-		""" Run Naive Bayes classifier """
+		nbObject = Start_NB(array, self.tweet_class, self.trainset, self.testset, True, tuplebows, ngrambow, self.CROSS_VALIDATION)
+		results = nbObject.start_naivebayes_testing(mode, minborder, maxborder, nr)
 
+		return results
+
+
+	#def start_naivebayes_classification(self, mode, ngrambow, minborder, maxborder, nr):
+		""" Start Naive Bayes classification learning. Return results (resultscores_tuple, N.A., N.A.)"""
+	"""
 		array = self.get_preprocessed_array(mode)
 		tuplebows = self.collect_bow(array, ngrambow, minborder, maxborder, nr/2)
 
 		nbObject = Start_NB(array, self.tweet_class, self.trainset, self.testset, True, tuplebows, ngrambow, self.CROSS_VALIDATION)
 		results = nbObject.start_naivebayes_testing(mode, minborder, maxborder, nr)
+
 		return results
+	"""
+
+	def setup_input_classification(self, mode, ngrambow, minborder, maxborder, nr):
+		""" Set up array and BOWs used for classification"""
+		array = self.get_preprocessed_array(mode)
+		tuplebows = self.collect_bow(array, ngrambow, minborder, maxborder, nr/2)
+		return (array,tuplebows)
 
 
 	def compare_dummy_classification(self):
-		""" Compares classifier to dummy classifiers. Return results"""
+		""" Compares classifier to dummy classifiers. Return results (resultscores_tuple, N.A., N.A.)"""
 		X_train = self.train_vectors
 		y_train = self.train_tweetclasses
 		X_test = self.test_vectors
@@ -227,8 +239,7 @@ class Main(object):
 
 
 	def count_classes(self):
-		"""
-		Counts and prings occurance of each class
+		""" Counts occurance of each class
 		"""
 		values = self.tweet_class.values()
 		total = len(values)
@@ -236,14 +247,12 @@ class Main(object):
 		# Count occurances of classes
 	 	activity_count = values.count(0)
 		nonactivity_count = values.count(1)
-		unknown_count = values.count(2)
 
 		# Print
 		print ">> Statistics:"
 		print "Total number of tweets: %i" % total
 		print "Total activity tweets: %i" % activity_count
 		print "Total non-activity tweets: %i" % nonactivity_count
-		print "Total unknown-activity tweets: %i" % unknown_count
 
 	def string_metrics(self, tuples):
 		""" Create array of string values from values in tuples """
@@ -295,13 +304,13 @@ class Main(object):
 				print "-- RUN NEW NGRAM: %s.." % str(ngram)
 				for lenbow in lenbows:
 					resulttuple = None
+					array, tuplebow = self.setup_input_classification(mode, ngram, 0, 0, lenbow)
 					if 'svm' in mode:
-							
-						(result, gamma, c) = self.start_svm_classification(mode, ngram, 0,0, lenbow)
+						(result, gamma, c) = self.start_svm_classification(array, mode, ngram, 0,0, lenbow,tuplebow)
 						resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
 
 					if 'nb' in mode:
-						(result, gamma, c) = self.start_naivebayes_classification(mode, ngram, 0, 0, lenbow)
+						(result, gamma, c) = self.start_naivebayes_classification(array,mode, ngram, 0, 0, lenbow, tuplebow)
 						resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
 					print "ONE"
 					self.write_results_to_file(resulttuple)
@@ -311,6 +320,8 @@ class Main(object):
 		#self.write_results_to_file(dummy_result_array)
 
 		print "TIME TAKEN: %f seconds" % (time.time() - begin)
+
+
 
 
 # call main with mode
