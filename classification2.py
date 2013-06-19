@@ -407,51 +407,6 @@ class Main(object):
 		print "Total non-activity tweets: %i" % nonactivity_count
 		print "Total unknown-activity tweets: %i" % unknown_count
 
-
-
-	def tweet_to_vector(self, tweet_token, totalbow, boolean):
-		""" Convert tweet to binary vector for occurances in BOW"""
-		tweetstring = ' '.join(tweet_token)		# for comparison value tuples in string
-		vec = []
-
-		for index,x in enumerate(totalbow):
-			if (' '.join(x) in tweetstring):
-				if (boolean):
-					vec.append(1.0)
-				else:
-					vec.append(totalbow[x])
-			else:
-				vec.append(0.0)
-
-		return vec
-			
-				
-	def tweet_to_vector_posnegneutral(self, tweet_token, posbow, negbow):
-		""" Convert tweet to vector [posvalue, negvalue, neutralvalue]"""
-		tweetstring = ' '.join(tweet_token)		# for comparison value tuples in string
-		posvalue = 0
-		negvalue = 0
-		neutralvalue = 0
-
-		# Get all single words from bag of words
-		poswords = helpers.unfold_tuples(posbow)	
-		negwords = helpers.unfold_tuples(negbow)		
-		totalwords = list(set(poswords + negwords))
-
-		for x in posbow:
-			if (' '.join(x) in tweetstring):
-				posvalue += posbow[x]
-		for x in negbow:
-			if (' '.join(x) in tweetstring):
-				negvalue += negbow[x]
-		for word in tweet_token:
-			if ( word not in totalwords ):		# neutral words
-				neutralvalue += 1
-
-		vec  = [float(posvalue), float(negvalue), float(neutralvalue)]
-		return vec
-
-
 	def string_metrics(self, tuples):
 		""" Create array of string values from values in tuples """
 		(p,r,f, s) = tuples
