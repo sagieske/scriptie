@@ -87,6 +87,8 @@ class Preprocessing(object):
   		self.dump = "--write" in mode
 		self.mode = re.sub(r' --(\S+)', r'', mode)
 
+		print "DUMPING? "
+		print self.dump
 
 		#self.preprocess_tweets()
 
@@ -98,7 +100,7 @@ class Preprocessing(object):
 			self.stemming()
 		if("token" in mode_args):
 			self.tokenize()
-		if("frog" in mode_args):
+		if("lemma" in mode_args or "pos" in mode_args):
 			self.frogtokens()
 
 		if ( self.dump ):
@@ -166,6 +168,7 @@ class Preprocessing(object):
 		if (not debug):
 			for index in self.tweets:
 				tokens = nltk.word_tokenize(self.tweets[index])
+
 				self.tokenized_tweets_array.append(tokens)
 
 	def frogtokens(self):
@@ -186,10 +189,10 @@ class Preprocessing(object):
 			frogclient = FrogClient('localhost',self.PORTNUMBER)
 			print "** START frog analysis."
 			if( "lemma" in self.mode ):
-				print "** Creating lemma's.. (This may take a while)""
+				print "** Creating lemma's.. (This may take a while)"
 
 			if ( "pos" in self.mode ):
-				print "** Creating POS tags.. (This may take a while)""
+				print "** Creating POS tags.. (This may take a while)"
 			
 			# Get frog analyses
 			for index in self.tweets:
