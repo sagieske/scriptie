@@ -57,7 +57,7 @@ class TopicExtraction_LDA(object):
 		corpus_mm = [dictionary.doc2bow(tokens_tweet) for tokens_tweet in tokenarray]
 		gensim.corpora.MmCorpus.serialize('/tmp/testing_gensim.mm', corpus_mm) # store to disk, for later use
 
-		tryout_topics = 50
+		tryout_topics = 10
 		lda = gensim.models.ldamodel.LdaModel(corpus=corpus_mm, id2word=dictionary, num_topics=tryout_topics, update_every=1, chunksize=10000, passes=3)
  		hdp = gensim.models.hdpmodel.HdpModel(corpus_mm, id2word=dictionary)
 
@@ -68,14 +68,13 @@ class TopicExtraction_LDA(object):
 			string = "topic #%i " + str(lda.print_topic(i))
 			print string % i
 
-		for i in range(0, tryout_topics):
-			string = "topic #%i " + str(lsi.print_topic(i))
+		#for i in range(0, tryout_topics):
+		#	string = "topic #%i " + str(lsi.print_topic(i))
 			#print string % i
 
-		hdp.optimal_ordering()
-		hdp.print_topics()
+		#hdp.optimal_ordering()
+		#hdp.print_topics()
 
-		result=lda[corpus_mm]
 		#"""
 
 	def remove_stopwords(self,sentence):
