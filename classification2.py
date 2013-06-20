@@ -39,7 +39,7 @@ class Main(object):
 	lemmatized_tweets_array = []
 	
 	# File for classification results
-	RESULTFILE = 'results_classification_17juni.csv'
+	RESULTFILE = 'results_classification_20juni.csv'
 
 	TRAININGFILE = "2000test_annotated_v3.csv"
 
@@ -50,7 +50,7 @@ class Main(object):
 	test_vectors = []
 
 	# Cross validation folds
-	CROSS_VALIDATION = 5
+	CROSS_VALIDATION = 10
 
 	def __init__(self, testingmode, mode):
 		""" Initialize tweets, preprocess and create train/test sets"""
@@ -91,7 +91,7 @@ class Main(object):
 		if 'svm' in mode:
 			svmObject = Start_SVM(array, mode, self.tweet_class, True, tuplebows, self.CROSS_VALIDATION)
 		if 'nb' in mode:
-			nbObject = Start_NB(array, self.tweet_class, True, tuplebows, ngrambow, self.CROSS_VALIDATION)
+			nbObject = Start_NB(array, mode, self.tweet_class, True, tuplebows, ngrambow, self.CROSS_VALIDATION)
 
 		# Get tweets of new data
 		new_tweets = {}
@@ -107,12 +107,12 @@ class Main(object):
 		self.preprocess_tweets(mode,new_tweets, inputfile_filename)
 		array = self.get_preprocessed_array(mode)
 
+		print "YOO"
 		# Classify newdata
 		if 'svm' in mode:
-			# FALSE = LOAD CLASSIFIER
 			prediction = svmObject.start_classification(mode,array,  loadclassifier, 0.001, 10)
 		if 'nb' in mode:
-			prediction = nbObject.start_classification(array)
+			prediction = nbObject.start_classification(mode,array,  False, loadclassifier)
 	
 		# Print to file
 		self.count_classes(prediction.tolist())
@@ -140,7 +140,7 @@ class Main(object):
 		if 'svm' in mode:
 			svmObject = Start_SVM(array, mode, self.tweet_class, True, tuplebows, self.CROSS_VALIDATION)
 		if 'nb' in mode:
-			nbObject = Start_NB(array, self.tweet_class, True, tuplebows, ngrambow, self.CROSS_VALIDATION)
+			nbObject = Start_NB(array, mode, self.tweet_class, True, tuplebows, ngrambow, self.CROSS_VALIDATION)
 
 		print "preprocess new data"
 		# Preprocess new dataata
@@ -152,7 +152,7 @@ class Main(object):
 		if 'svm' in mode:
 			prediction = svmObject.start_classification(mode,array, loadclassifier, 0.001, 10)
 		if 'nb' in mode:
-			prediction = nbObject.start_classification(array)
+			prediction = nbObject.start_classification(mode,array,  loadclassifier)
 
 		self.count_classes(prediction.tolist())
 		classification_filename = training_filename + "_class.csv"
@@ -169,8 +169,8 @@ class Main(object):
 	def start_naivebayes_classification(self, array, mode, ngrambow, minborder, maxborder, nr, tuplebows):
 		""" Start Naive Bayes classification learning. Return results (resultscores_tuple, N.A., N.A.)"""
 
-		nbObject = Start_NB(array, self.tweet_class, True, tuplebows, ngrambow, self.CROSS_VALIDATION)
-		results = nbObject.start_naivebayes_testing(mode, minborder, maxborder, nr)
+		nbObject = Start_NB(array, mode, self.tweet_class, True, tuplebows, ngrambow, self.CROSS_VALIDATION)
+		results = nbObject.start_naivebayes_evaluation(mode, minborder, maxborder, nr)
 
 		return results
 
@@ -279,12 +279,10 @@ class Main(object):
 		print "Total activity tweets: %i" % activity_count
 		print "Total non-activity tweets: %i" % nonactivity_count
 
-	def string_metrics(self, tuples):
+	def string_metrics(self, f1_array):
 		""" Create array of string values from values in tuples """
-		(p,r,f, s) = tuples
-		metriclist = [((f[0]+f[1])/2.0), f[0], f[1], ((p[0]+p[1])/2.0), p[0], p[1], ((r[0]+r[1])/2.0), r[0], r[1]]
 		metrics_string_array = []
-		for item in metriclist:
+		for item in f1_array:
 			metric = "%.4f" %item
 			metrics_string_array.append(metric)
 
@@ -295,26 +293,38 @@ class Main(object):
 		rows = []
 		try:
 			for item in results:
+
 				mode, gamma, c, ngram, bow, tuples = item
+				f1_avg, f1_array = tuples
 
 				if isinstance(gamma, float):
 					gamma = "%.4f" % gamma
 				if isinstance(c, float):
 					c = "%.0f" %c
 
-				metriclist = self.string_metrics(tuples)
-				row = [mode, gamma, c, ngram, bow]
+				f1_avg_4f = "%.4f" % f1_avg
+
+				metriclist = self.string_metrics(f1_array)
+				row = [mode, gamma, c, ngram, bow, f1_avg_4f]
 				row += metriclist
 				rows.append(row)
 		except TypeError: 
 			print "Error: Type of parameter result"
+			print results
 
 		helpers.write_to_csv(self.RESULTFILE, "a", rows)
 
 
 	def write_begin(self):
 		""" Write header for results to CSV file """
-		rows = [["MODE","GAMMA", "C", "NGRAM", "BOW", "F1", "F1_0", "F1_1", "Precision", "P_0", "P_1", "Recall", "R_0", "R_1"]]
+		# Create headers for rounds
+		list_roundnr = []
+		for i in range(1, self.CROSS_VALIDATION):
+			roundnr_string = "Round %i" %i
+			list_roundnr.append(roundnr_string)
+			
+		headers = [["MODE","GAMMA", "C", "NGRAM", "BOW", "F1 AVG"]]
+		rows = [ headers[0]+list_roundnr ]
 		helpers.write_to_csv(self.RESULTFILE, "wb", rows)
 
 
@@ -350,9 +360,9 @@ class Main(object):
 
 # call main with mode
 m = Main(True, "frog lemma pos stem token --debug")
-#m.get_activity_tweets('day_output.csv','svm lemma posneg', [1,2], 100)
-
-m.analysis_classification('svm lemma posneg --debug', [1,2], 100, False)
+m.get_activity_tweets('day_output.csv','nb lemma posneg --debug', [1,2], 100, False)
+#m.write_begin()
+#m.analysis_classification('nb lemma posneg --debug', [1,2], 100, False)
 #classifiers = ['nb', 'svm']
 #types_preprocess = ['token', 'stem', 'lemma', 'pos']
 
@@ -369,7 +379,7 @@ modes = ['svm lemma posneg' ]
 #modes = ['nb token posneg']
 #ngramarray = [[1],[1,2], [1,2,3], [2,3]]
 #lenbows = [50, 74, 100, 124, 150, 174, 200]
-modes = ['svm lemma posneg']
+modes = ['nb lemma posneg']
 ngramarray = [[1,2]]
 lenbows = [100]
 #m.write_begin()

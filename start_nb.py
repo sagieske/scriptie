@@ -9,10 +9,9 @@ import operator
 
 
 class Start_NB(object):
-	"""blablbla
+	""" Class for Naive Bayes classification
 	"""
 
-	#array = []
 	classifier = None		# Classifier of object
 	transformer = None		# Transformer for data
 	vectorizer = None		# Vectorizer for data
@@ -23,49 +22,60 @@ class Start_NB(object):
 	test_classes = []
 
 
-	def __init__(self, pr_array, tweetclass, trainset, testset, testmode, tuplebows, ngrams, crossvalidation):
+	def __init__(self, pr_array, mode, tweetclass, testmode, tuplebows, ngrams, crossvalidation):
 		""" Initialize items """
 		self.pr_array = pr_array
 		self.tweetclass = tweetclass
 		self.testmode = testmode
-		self.trainset = trainset
-		self.testset = testset
 		self.CROSS_VALIDATION = crossvalidation
 		self.posbow, self.negbow = tuplebows
 		self.ngrams = ngrams
+		self.mode = mode
 
-	def start_classification(self, new_data, allwords):
+	def start_classification(self, mode, new_data, allwords, fitclassifier):
 		""" Start classification of twitter using classifier. New_data is array of tweets divided in tokens"""
+
+		self.train_tweetclasses, self.train_vectors = self.nb_create_traintestdata(self.pr_array)
+
+		if (not fitclassifier):
+			self.classifier = MultinomialNB()
+			self.classifier.fit(self.train_vectors, self.train_tweetclasses)
+			if '--debug' in mode:
+				self.dump_classifier("classifiertest_nb.txt")
+		else:
+			self.load_classifier("classifiertest_nb.txt")
+
 		new_data_scaled = self.nb_create_inputdata(new_data, allwords)	
+
 		y_pred = self.classifier.predict(new_data_scaled)
 		return y_pred
 
-	def start_naivebayes_testing(self, mode, minborder, maxborder, lenbow):
+
+	def start_naivebayes_evaluation(self, mode, minborder, maxborder, lenbow):
 		""" Start classification training of Naive Bayes"""
-		self.mode = mode
-		self.transformer = None	# Reset scaling
+		self.transformer = None	# Reset transformer
+		self.vectorizer = None	# Reset transformer
 
 		allwords = False
 		if 'allwords' in self.mode:
 			allwords = True
 
-		self.train_tweetclasses, self.train_vectors = self.nb_create_traintestdata(self.pr_array, self.trainset, allwords=allwords)
-		self.test_tweetclasses, self.test_vectors = self.nb_create_traintestdata(self.pr_array, self.testset, allwords=allwords)
+		self.train_tweetclasses, self.train_vectors = self.nb_create_traintestdata(self.pr_array, allwords=allwords)
 
 		# Run Naive Bayes
-		results = self.run_naivebayes(self.train_vectors, np.array(self.train_tweetclasses), self.test_vectors, np.array(self.test_tweetclasses), self.CROSS_VALIDATION)
-
-		"""
-		tweets = []
-		for index in self.testset:
-			tweets.append(self.pr_array[index])
-		print self.start_classification(tweets, allwords=allwords)
-		"""
+		results = self.run_naivebayes_evaluation(self.train_vectors, np.array(self.train_tweetclasses), self.CROSS_VALIDATION)
 
 		return results
+	"""
+	def start_classification(self, new_data):
+		""" """Start classification of twitter using classifier. New_data is array of tweets divided in tokens""""""
+		new_data_scaled = self.nb_create_vectorarray(new_data, self.scaler)	
+		y_pred = self.classifier.predict(np.array(new_data_scaled))
+		return y_pred
+	"""
 
 
-	def run_naivebayes(self, X_train, train_classes, X_test, test_classes, k):
+	def run_naivebayes_evaluation(self, inputdata, outputdata, k):
 		""" Fit Naive Bayes Classification on train set with cross validation. 
 		Run Naive Bayes Classificaiton on test set. Return results
 		"""
@@ -73,42 +83,34 @@ class Start_NB(object):
 		###print "** Fitting Naive Bayes classifier.."
 
 		# Cross validation
-		cv = cross_validation.KFold(X_train.shape[0], n_folds=k, indices=True)
+		cv = cross_validation.KFold(inputdata.shape[0], n_folds=k, indices=True)
 		cv_naivebayes = []
+		f1_scores = []
 		for traincv, testcv in cv:
+
 			clf_cv = MultinomialNB()
-			clf_cv.fit(X_train[traincv], train_classes[traincv])
-			test_classes_cv, y_pred_cv = train_classes[testcv], clf_cv.predict(X_train[testcv])
-			nb_tuple = (metrics.f1_score(test_classes_cv, y_pred_cv), clf_cv)
-			cv_naivebayes.append(nb_tuple)
-		
-		# Get best classifier
-		(f1, best_clf) = max(cv_naivebayes,key=operator.itemgetter(0))
-		
-		self.classifier = best_clf
+			clf_cv.fit(inputdata[traincv], outputdata[traincv])
 
-		###print "** Run Naive Bayes classifier.."
-		y_true, y_pred = test_classes, best_clf.predict(X_test)
+			y_pred_cv = clf_cv.predict(inputdata[testcv])
 
-		tuples = metrics.precision_recall_fscore_support(y_true, y_pred)
+			f1 = metrics.f1_score(outputdata[testcv], y_pred_cv, pos_label=0)
+			f1_scores.append(f1)
+
+		
+		#TODO: NEEDED? self.classifier = clf_cv
+		print "score average: %s" + str(np.mean(f1_scores))
+
+		average_score =np.mean(f1_scores)
+		tuples = (average_score, f1_scores)
+
 		return (tuples, 'N.A.', 'N.A.')
 
-	def nb_create_traintestdata(self, array, indexset, **kwargs):
+	def nb_create_traintestdata(self, array, **kwargs):
 		""" Creates dataset needed for training/testing of Naive Bayes"""
 		allwords = kwargs.get('allwords', False)
-		tweets = []
-		classes = []
+		classes = self.tweetclass.values()
 
-		if ( allwords ):
-			for index in indexset:
-				tweets.append(array[index])
-				classes.append(self.tweetclass[index])
-		else:
-			for index in indexset:
-				tweets.append(array[index])
-				classes.append(self.tweetclass[index])
-
-		inputdata = self.nb_create_inputdata(tweets, allwords)
+		inputdata = self.nb_create_inputdata(array, allwords)
 
 		return (classes, inputdata)
 
@@ -176,6 +178,7 @@ class Start_NB(object):
 
 		values = zip(*listtweets)
 
+		# Create new tweet according to booleans
 		new_tweet_array = []
 		for index, word in enumerate(tweet):
 			if ( any(values[index]) ):

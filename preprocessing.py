@@ -67,10 +67,10 @@ class Preprocessing(object):
 
 	"""
 
-	DEBUG_STEM = "debug2_stem.txt"
-	DEBUG_TOKEN = "debug2_token.txt"
-	DEBUG_LEMMA = "debug2_lemma.txt"
-	DEBUG_POS = "debug2_pos.txt"
+	#DEBUG_STEM = "debug2_stem.txt"
+	#DEBUG_TOKEN = "debug2_token.txt"
+	#DEBUG_LEMMA = "debug2_lemma.txt"
+	#DEBUG_POS = "debug2_pos.txt"
 
 	PORTNUMBER = 1160
 
@@ -80,13 +80,17 @@ class Preprocessing(object):
 	lemmatized_tweets_array = []
 	pos_tweets_array = []
 
-	def __init__(self, mode, tweetlist):
+	def __init__(self, mode, tweetlist, filename):
 		"""	Initialize tweets for use"""
 		self.tweets = tweetlist
   		self.debug = "--debug" in mode
   		self.dump = "--write" in mode
 		self.mode = re.sub(r' --(\S+)', r'', mode)
 
+		self.DEBUG_STEM = filename + "_stem.txt"
+		self.DEBUG_TOKEN =  filename + "_token.txt"
+		self.DEBUG_LEMMA =  filename + "_lemma.txt"
+		self.DEBUG_POS = filename + "_pos.txt"
 
 
 	def preprocess_tweets(self):
@@ -136,7 +140,7 @@ class Preprocessing(object):
 			try:
 				self.read_from_file(self.DEBUG_STEM, "stem")
 			except:
-				print "! Error in reading from file debug.txt. Redo stemming"
+				print "! Error in reading from file. Redo stemming"
 				debug = False
 		if (not debug):
 			for index in self.tweets:
@@ -160,7 +164,7 @@ class Preprocessing(object):
 			try:
 				self.read_from_file(self.DEBUG_TOKEN, "token")
 			except:
-				print "! Error in reading from file debug.txt. Redo tokenization"
+				print "! Error in reading from file. Redo tokenization"
 				debug = False
 		if (not debug):
 			for index in self.tweets:
@@ -178,19 +182,23 @@ class Preprocessing(object):
 				if( "pos" in self.mode ):
 					self.read_from_file(self.DEBUG_POS, "pos")
 			except:
-				print "! Error in reading from file debug.txt. Redo frogtokens"
+				print "! Error in reading from file. Redo frogtokens"
 				debug = False
 		if(not debug):
 			self.startFrogServer('start')			
 			time.sleep(15)							# Time for startup server
 			frogclient = FrogClient('localhost',self.PORTNUMBER)
 			print "** START frog analysis."
+			string = "** Creating: "
 			if( "lemma" in self.mode ):
-				print "** Creating lemma's.. (This may take a while)"
+				string += "lemmas "
+				#print "** Creating lemma's.. (This may take a while)"
 
 			if ( "pos" in self.mode ):
-				print "** Creating POS tags.. (This may take a while)"
-			
+				string += "POS tags "
+				#print "** Creating POS tags.. (This may take a while)"
+			string += "s.. (This may take a while)"
+			print string
 			# Get frog analyses
 			for index in self.tweets:
 				tokensword, tokenslemma, tokenspos = self.frog_tweets(frogclient, self.tweets[index])

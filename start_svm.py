@@ -62,7 +62,6 @@ class Start_SVM(object):
 		
 		# fit classifier on trainingdata using gamma and c
 		if (not fitclassifier):
-			self.svm_create_traintestdata( new_data)
 			self.classifier = svm.SVC(gamma=gamma,C=c)
 			self.classifier.fit(np.array(self.train_vectors), self.train_tweetclasses)
 			if '--debug' in mode:
@@ -78,37 +77,39 @@ class Start_SVM(object):
 		
 	def run_svm_evaluation(self, inputdata, outputdata, k):
 		""" Run SVM on training data to evaluate classifier. Return f1scores, gamma and C"""
-		# Cross validation
-		cv = cross_validation.KFold(inputdata.shape[0], n_folds=k, indices=True,shuffle=True)
+
 
 		# Parameter grid
 		param_grid = [
 		 {'C': np.logspace(1,5,5), 'gamma': np.logspace(-3,0,5), 'kernel': ['rbf']}
 		]
-
 		score_func = metrics.f1_score
 
 
-		cv_svm = []
+		# Cross validation
+		cv = cross_validation.KFold(inputdata.shape[0], n_folds=k, indices=True,shuffle=True)
 		f1_scores = []
-		for traincv, testcv in cv:
-			#clf_cv = svm.SVC()
 
+		for traincv, testcv in cv:
 			clf_cv = GridSearchCV(SVC(), param_grid, score_func=score_func,  n_jobs=-1 )
 			clf_cv.fit(inputdata[traincv], outputdata[traincv])
-			test_classes_cv, y_pred_cv = outputdata[testcv], clf_cv.predict(inputdata[testcv])
-			tuples = metrics.precision_recall_fscore_support(test_classes_cv, y_pred_cv)
 
-			f1 = metrics.f1_score(test_classes_cv, y_pred_cv, pos_label=0)
+			y_pred_cv = clf_cv.predict(inputdata[testcv])
+			#tuples = metrics.precision_recall_fscore_support(test_classes_cv, y_pred_cv)
+
+			f1 = metrics.f1_score(outputdata[testcv], y_pred_cv, pos_label=0)
 			f1_scores.append(f1)
 
 			dict_param = clf_cv.best_params_
 			gamma1 = dict_param['gamma']
 			c = dict_param['C']
 		
-		self.classifier = clf_cv
+		#TODO: NEEDED? self.classifier = clf_cv
 		print "score average: %s" + str(np.mean(f1_scores))
 		print f1_scores
+
+		average_score =np.mean(f1_scores)
+		tuples = (average_score, f1_scores)
 
 		return (tuples, gamma1, c)
 
