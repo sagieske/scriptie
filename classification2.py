@@ -29,11 +29,6 @@ class Main(object):
 	# Dictionary for class, classify unkown into non-activity
 	class_dict = {"Y": 0, "N": 1, "U": 0}
 
-	# Distribution of trainingset, testset, validationset
-	distribution = (0.7, 0.2, 0.1)
-
-	#testset = []
-	#trainset = []
 	tweets = {}
 	tweet_class = {}
 
@@ -42,9 +37,6 @@ class Main(object):
 	tokenized_tweets_array = []
 	pos_tweets_array = []
 	lemmatized_tweets_array = []
-
-	# Debug files
-	DEBUG_SETS = "debug_sets_test0.txt"
 	
 	# File for classification results
 	RESULTFILE = 'results_classification_17juni.csv'
@@ -91,49 +83,43 @@ class Main(object):
 					if ( self.testingmode ):
 						self.tweet_class[i-1] = self.class_dict.get(row[5].upper())
 
-
-
 		
-	def get_activity_tweets(self, inputfile, mode, ngrambow, nr):
+	def get_activity_tweets(self, inputfile, mode, ngrambow, nr, loadclassifier):
 		""" Extract new activity tweets from file"""
+		# Create classifier on trainingdata of class
+		(array, tuplebows) = self.setup_input_classification(mode, ngrambow, 0,0, nr)
+		if 'svm' in mode:
+			svmObject = Start_SVM(array, mode, self.tweet_class, True, tuplebows, self.CROSS_VALIDATION)
+		if 'nb' in mode:
+			nbObject = Start_NB(array, self.tweet_class, True, tuplebows, ngrambow, self.CROSS_VALIDATION)
 
-		# Get tweets
-		all_tweets = {}
+		# Get tweets of new data
+		new_tweets = {}
 		index = 0
 		newdata = csv.reader(open(inputfile, 'rU'), delimiter=self.DELIMITER)
-		for i, row in enumerate(self.newdata):
+		for i, row in enumerate(newdata):
 			if( row[5] == '' and row[0].isdigit()):
-				all_tweets[index] = row[3]
+				new_tweets[index] = row[3]
 				index += 1
 
-		(array, tuplebows) = self.setup_input_classification(mode, ngrambow, 0,0, nr)
-
-		# Create classifier
-		if 'svm' in mode:
-			print "START SVM"
-			svmObject = Start_SVM(array, self.tweet_class, True, tuplebows, self.CROSS_VALIDATION)
-			(result, gamma, c) = svmObject.start_svm_testing(mode, 0, 0, nr)
-		if 'nb' in mode:
-			nbObject = Start_NB(array, self.tweet_class, self.trainset, self.testset, True, tuplebows, ngrambow, self.CROSS_VALIDATION)
-			(result, gamma, c) = nbObject.start_naivebayes_testing(mode, 0, 0, nr)
-
-		#resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
-		#self.write_results_to_file(resulttuple)
-
-
-		print "PREPROCESS TWEETS"
-		input_filename = inputfile.split('.')[0]
-		self.preprocess_tweets(mode,all_tweets, input_filename)
+		# Preprocess new data
+		inputfile_filename = inputfile.split('.')[0]
+		self.preprocess_tweets(mode,new_tweets, inputfile_filename)
 		array = self.get_preprocessed_array(mode)
 
-		# Classify tweets
-		prediction = svmObject.start_classification(array)
-
+		# Classify newdata
+		if 'svm' in mode:
+			# FALSE = LOAD CLASSIFIER
+			prediction = svmObject.start_classification(mode,array,  loadclassifier, 0.001, 10)
+		if 'nb' in mode:
+			prediction = nbObject.start_classification(array)
+	
+		# Print to file
 		self.count_classes(prediction.tolist())
-		helpers.write_classification_to_tweetfile(prediction,0, 5, "day_output.csv", "day_output_class.csv")
+		classification_filename = inputfile_filename + "_class.csv"
+		helpers.write_classification_to_tweetfile(prediction,0, 5, inputfile, classification_filename)
 
-
-	def analysis_classification(self, mode, ngrambow, nr):
+	def analysis_classification(self, mode, ngrambow, nr, loadclassifier):
 		""" Analyse classification of training & testdata"""
 		DELIMITER = "\t"
 
@@ -149,44 +135,41 @@ class Main(object):
 				index += 1
 
 
-		# Create classifier
+		# Create classifier on trainingdata of class
 		(array, tuplebows) = self.setup_input_classification(mode, ngrambow, 0,0, nr)
-
 		if 'svm' in mode:
-			print "START SVM"
-			svmObject = Start_SVM(array, self.tweet_class, True, tuplebows, self.CROSS_VALIDATION)
-			(result, gamma, c) = svmObject.start_svm_testing(mode, 0, 0, nr)
+			svmObject = Start_SVM(array, mode, self.tweet_class, True, tuplebows, self.CROSS_VALIDATION)
 		if 'nb' in mode:
-			nbObject = Start_NB(array, self.tweet_class, self.trainset, self.testset, True, tuplebows, ngrambow, self.CROSS_VALIDATION)
-			(result, gamma, c) = nbObject.start_naivebayes_testing(mode, 0, 0, nr)
+			nbObject = Start_NB(array, self.tweet_class, True, tuplebows, ngrambow, self.CROSS_VALIDATION)
 
-		resulttuple = [(mode, gamma, c, ngrambow, nr, result)]
-		self.write_results_to_file(resulttuple)
-
-		print "PREPROCESS TWEETS"
+		print "preprocess new data"
+		# Preprocess new dataata
 		training_filename = self.TRAININGFILE.split('.')[0]
-		self.preprocess_tweets(mode,all_tweets, training_filename)
+		self.preprocess_tweets(mode,self.tweets, training_filename)
 		array = self.get_preprocessed_array(mode)
 
 		# Classify tweets
-		prediction = svmObject.start_classification(array)
+		if 'svm' in mode:
+			prediction = svmObject.start_classification(mode,array, loadclassifier, 0.001, 10)
+		if 'nb' in mode:
+			prediction = nbObject.start_classification(array)
 
 		self.count_classes(prediction.tolist())
 		classification_filename = training_filename + "_class.csv"
 		helpers.write_classification_to_tweetfile(prediction,1, 7, self.TRAININGFILE, classification_filename)
 
-	def start_svm_classification(self, array, mode, ngrambow, minborder, maxborder, nr, tuplebows):
+	def start_svm_evaluation(self, array, mode, ngrambow, minborder, maxborder, nr, tuplebows):
 		""" Start SVM classification learning. Return results (resultscores_tuple, gamma1, c)"""
 
-		svmObject = Start_SVM(array, self.tweet_class, True, tuplebows, self.CROSS_VALIDATION)
-		results = svmObject.start_svm_testing(mode, minborder, maxborder, nr)
+		svmObject = Start_SVM(array, mode, self.tweet_class, True, tuplebows, self.CROSS_VALIDATION)
+		results = svmObject.start_svm_evaluation(mode, minborder, maxborder, nr)
 
 		return results
 
 	def start_naivebayes_classification(self, array, mode, ngrambow, minborder, maxborder, nr, tuplebows):
 		""" Start Naive Bayes classification learning. Return results (resultscores_tuple, N.A., N.A.)"""
 
-		nbObject = Start_NB(array, self.tweet_class, self.trainset, self.testset, True, tuplebows, ngrambow, self.CROSS_VALIDATION)
+		nbObject = Start_NB(array, self.tweet_class, True, tuplebows, ngrambow, self.CROSS_VALIDATION)
 		results = nbObject.start_naivebayes_testing(mode, minborder, maxborder, nr)
 
 		return results
@@ -235,7 +218,7 @@ class Main(object):
 
 
 	def collect_bow(self, array, ngram_types_array, posborder, negborder, nr):
-		""" Collect Bag of words of trainset with specified array and ngrams
+		""" Collect Bag of words of array with specified array and ngrams
 		Returns negative and positive bag of words
 		"""
 
@@ -269,7 +252,6 @@ class Main(object):
 	def preprocess_tweets(self, mode, tweets_dict, filename):
 		""" Process tweets according to mode and set arrays """
 		processObject = Preprocessing(mode, tweets_dict,filename)
-		print len(tweets_dict)
 		processObject.preprocess_tweets()
 		if ( "stem" in mode):
 			self.stemmed_tweets_array = processObject.stemmed_tweets_array
@@ -336,7 +318,7 @@ class Main(object):
 		helpers.write_to_csv(self.RESULTFILE, "wb", rows)
 
 
-	def run_classification(self, modes, ngramarray, lenbows):
+	def run_classification_evaluation(self, modes, ngramarray, lenbows):
 		""" Run classifications according to input and write results to file."""
 		begin = time.time()
 
@@ -349,13 +331,12 @@ class Main(object):
 					resulttuple = None
 					array, tuplebow = self.setup_input_classification(mode, ngram, 0, 0, lenbow)
 					if 'svm' in mode:
-						(result, gamma, c) = self.start_svm_classification(array, mode, ngram, 0,0, lenbow,tuplebow)
+						(result, gamma, c) = self.start_svm_evaluation(array, mode, ngram, 0,0, lenbow,tuplebow)
 						resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
 
 					if 'nb' in mode:
 						(result, gamma, c) = self.start_naivebayes_classification(array,mode, ngram, 0, 0, lenbow, tuplebow)
 						resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
-					print "ONE"
 					self.write_results_to_file(resulttuple)
 
 		# Run dummy classification
@@ -369,8 +350,9 @@ class Main(object):
 
 # call main with mode
 m = Main(True, "frog lemma pos stem token --debug")
-#m.get_activity_tweets('svm lemma posneg', [1,2], 100, "day_output.csv")
-m.analysis_classification('svm lemma posneg --debug', [1,2], 100)
+#m.get_activity_tweets('day_output.csv','svm lemma posneg', [1,2], 100)
+
+m.analysis_classification('svm lemma posneg --debug', [1,2], 100, False)
 #classifiers = ['nb', 'svm']
 #types_preprocess = ['token', 'stem', 'lemma', 'pos']
 
@@ -391,4 +373,4 @@ modes = ['svm lemma posneg']
 ngramarray = [[1,2]]
 lenbows = [100]
 #m.write_begin()
-#m.run_classification(modes, ngramarray, lenbows)
+#m.run_classification_evaluation(modes, ngramarray, lenbows)
