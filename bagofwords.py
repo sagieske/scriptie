@@ -54,16 +54,11 @@ class BagOfWords(object):
 	NEG_BORDER = -0.1
 
 
-	def __init__(self, total_tokenarray, total_tweetclasses, trainset):
+	def __init__(self, total_tokenarray, total_tweetclasses):
 		""" Initialize arrays according to trainset"""
-		#self.bow = {}
-		#self.tokenarray = {}
-		#self.tweet_classes = {}
-		#self.corpus = {}
-		#self.bow = {}
-		for itemindex in trainset:
-			self.tokenarray[itemindex] = total_tokenarray[itemindex]
-			self.tweet_classes[itemindex] = total_tweetclasses[itemindex]
+		for index, item in enumerate(total_tokenarray):
+			self.tokenarray[index] = item
+			self.tweet_classes[index] = total_tweetclasses[index]
 
 	def create_corpus(self, ngramsize):
 		""" Create training corpus """

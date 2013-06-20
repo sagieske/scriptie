@@ -3,13 +3,14 @@ from sklearn import cross_validation
 from sklearn.grid_search import GridSearchCV
 from sklearn.svm import SVC
 from sklearn import preprocessing					# used for scaler
-import numpy as np
 from sklearn import metrics
-#from sklearn.metrics import precision_recall_fscore_support
+import numpy as np
+import helpers
+
 
 
 class Start_SVM(object):
-	"""blablbla
+	""" Class for SVM classification
 	"""
 
 	#array = []
@@ -21,13 +22,11 @@ class Start_SVM(object):
 	test_tweetclasses  = []
 
 
-	def __init__(self, pr_array, tweetclass, trainset, testset, testmode, tuplebows, crossvalidation):
+	def __init__(self, pr_array, tweetclass, testmode, tuplebows, crossvalidation):
 		""" Initialize items """
 		self.pr_array = pr_array
 		self.tweetclass = tweetclass
 		self.testmode = testmode
-		self.trainset = trainset
-		self.testset = testset
 		self.CROSS_VALIDATION = crossvalidation
 		self.posbow, self.negbow = tuplebows
 		
@@ -35,27 +34,29 @@ class Start_SVM(object):
 	def start_svm_testing(self, mode, minborder, maxborder, lenbow):
 		""" Start classification training of SVM"""
 		self.mode = mode
-		#totalbow = dict(self.posbow.items() + self.negbow.items())
 
 		self.scaler = None	# Reset scaling
 
-		# Create train & test data (classes, vectors)
-		self.train_tweetclasses, self.train_vectors = self.svm_create_traintestdata(self.pr_array, self.trainset)
-		self.test_tweetclasses, self.test_vectors = self.svm_create_traintestdata(self.pr_array, self.testset)
+		# Create data (classes, vectors)
+		self.train_tweetclasses, self.train_vectors = self.svm_create_traintestdata(self.pr_array)
 
-		# Run SVM
-		results = self.run_svm(np.array(self.train_vectors), np.array(self.train_tweetclasses), np.array(self.test_vectors), np.array(self.test_tweetclasses), self.CROSS_VALIDATION)
 
-		tweetarray = []
-		for tweetindex in self.testset:
-			tweet = self.pr_array[tweetindex]
-			tweetarray.append(tweet)
-		prediction = self.start_classification(tweetarray)
+		# Run SVM		
+		results = self.run_svm2(self.train_vectors, np.array(self.train_tweetclasses), self.CROSS_VALIDATION)
 
 		return results
 
 	def load_classifier(self, filename):
-		pass
+		""" Load classifier and scaler from file and set as class variables"""
+		(classifier, scaler) = helpers.read_from_file(filename)
+		self.classifier = classifier
+		self.scaler = scaler
+		
+	def dump_classifier(self, filename):
+		""" Dump classifier and scaler to file """
+		dumptuple = (self.classifier, self.scaler)
+		helpers.dump_to_file(filename, dumptuple)
+
 
 	def start_classification(self, new_data):
 		""" Start classification of twitter using classifier. New_data is array of tweets divided in tokens"""
@@ -67,6 +68,7 @@ class Start_SVM(object):
 		""" Run SVM classifier. Configure parameters for SVM using grid search, then fit with cross valiation.
 		Then predict test set. Return best parameters and scores.
 		"""
+
 		clf = svm.SVC()
 
 		# Parameter grid
@@ -93,14 +95,54 @@ class Start_SVM(object):
 
 		return (tuples, gamma1, c)
 
-	def svm_create_traintestdata(self, array, indexset):
+	def run_svm2(self, inputdata, outputdata, k):
+		print "RUN SVM 2"
+		# Cross validation
+		cv = cross_validation.KFold(inputdata.shape[0], n_folds=k, indices=True,shuffle=True)
+
+		cv_svm = []
+		f1_svm = []
+		for traincv, testcv in cv:
+			clf_cv = svm.SVC()
+
+			# Parameter grid
+			param_grid = [
+			 {'C': np.logspace(1,5,5), 'gamma': np.logspace(-3,0,5), 'kernel': ['rbf']}
+			]
+
+			score_func = metrics.f1_score
+			clf_cv = GridSearchCV(SVC(), param_grid, score_func=score_func,  n_jobs=-1 )
+			clf_cv.fit(inputdata[traincv], outputdata[traincv])
+			test_classes_cv, y_pred_cv = outputdata[testcv], clf_cv.predict(inputdata[testcv])
+			tuples = metrics.precision_recall_fscore_support(test_classes_cv, y_pred_cv)
+
+			dict_param = clf_cv.best_params_
+			gamma1 = dict_param['gamma']
+			c = dict_param['C']
+
+			f1 = metrics.f1_score(test_classes_cv, y_pred_cv)
+			svm_tuple = (gamma1, c)
+			cv_svm.append(svm_tuple)
+			f1_svm.append(f1)
+
+		
+		# Get best classifier
+		#(f1, gamma1, c) = max(cv_svm,key=operator.itemgetter(0))
+
+		
+		self.classifier = clf_cv
+		print "score average: %s" + str(np.mean(f1_svm))
+		print f1_svm
+
+		return (tuples, gamma1, c)
+
+
+	def svm_create_traintestdata(self, array):
 		""" creates dataset needed for training/testing of SVM"""
 		class_set = []
 		tweetarray = []
-		for tweetindex in indexset:
-			tweet = array[tweetindex]
-			tweetarray.append(tweet)
-			class_set.append(self.tweetclass[tweetindex])
+		tweetarray = array
+		class_set = self.tweetclass.values()
 
 		X_scaled = self.svm_create_vectorarray(tweetarray, self.scaler)
 
