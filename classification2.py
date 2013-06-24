@@ -92,7 +92,6 @@ class Main(object):
 			svmObject = Start_SVM(array, mode, self.tweet_class, True, tuplebows, self.CROSS_VALIDATION)
 		if 'nb' in mode:
 			nbObject = Start_NB(array, mode, self.tweet_class, True, tuplebows, ngrambow, self.CROSS_VALIDATION)
-
 		# Get tweets of new data
 		new_tweets = {}
 		index = 0
@@ -107,7 +106,6 @@ class Main(object):
 		self.preprocess_tweets(mode,new_tweets, inputfile_filename)
 		array = self.get_preprocessed_array(mode)
 
-		print "YOO"
 		# Classify newdata
 		if 'svm' in mode:
 			prediction = svmObject.start_classification(mode,array,  loadclassifier, 0.001, 10)
@@ -152,18 +150,18 @@ class Main(object):
 		if 'svm' in mode:
 			prediction = svmObject.start_classification(mode,array, loadclassifier, 0.001, 10)
 		if 'nb' in mode:
-			prediction = nbObject.start_classification(mode,array,  loadclassifier)
+			prediction = nbObject.start_classification(mode,array,  False, loadclassifier)
 
 		self.count_classes(prediction.tolist())
 		classification_filename = training_filename + "_class.csv"
 		helpers.write_classification_to_tweetfile(prediction,1, 7, self.TRAININGFILE, classification_filename)
 
+
 	def start_svm_evaluation(self, array, mode, ngrambow, minborder, maxborder, nr, tuplebows):
 		""" Start SVM classification learning. Return results (resultscores_tuple, gamma1, c)"""
 
 		svmObject = Start_SVM(array, mode, self.tweet_class, True, tuplebows, self.CROSS_VALIDATION)
-		results = svmObject.start_svm_evaluation(mode, minborder, maxborder, nr)
-
+		results = svmObject.start_svm_evaluation(mode, minborder, maxborder, nr, tuplebows)
 		return results
 
 	def start_naivebayes_classification(self, array, mode, ngrambow, minborder, maxborder, nr, tuplebows):
@@ -319,7 +317,7 @@ class Main(object):
 		""" Write header for results to CSV file """
 		# Create headers for rounds
 		list_roundnr = []
-		for i in range(1, self.CROSS_VALIDATION):
+		for i in range(1, self.CROSS_VALIDATION+1):
 			roundnr_string = "Round %i" %i
 			list_roundnr.append(roundnr_string)
 			
@@ -338,16 +336,19 @@ class Main(object):
 			for ngram in ngramarray:
 				print "-- RUN NEW NGRAM: %s.." % str(ngram)
 				for lenbow in lenbows:
-					resulttuple = None
-					array, tuplebow = self.setup_input_classification(mode, ngram, 0, 0, lenbow)
-					if 'svm' in mode:
-						(result, gamma, c) = self.start_svm_evaluation(array, mode, ngram, 0,0, lenbow,tuplebow)
-						resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
+					try:
+						resulttuple = None
+						array, tuplebow = self.setup_input_classification(mode, ngram, 0, 0, lenbow)
+						if 'svm' in mode:
+							(result, gamma, c) = self.start_svm_evaluation(array, mode, ngram, 0,0, lenbow,tuplebow)
+							resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
 
-					if 'nb' in mode:
-						(result, gamma, c) = self.start_naivebayes_classification(array,mode, ngram, 0, 0, lenbow, tuplebow)
-						resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
-					self.write_results_to_file(resulttuple)
+						if 'nb' in mode:
+							(result, gamma, c) = self.start_naivebayes_classification(array,mode, ngram, 0, 0, lenbow, tuplebow)
+							resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
+						self.write_results_to_file(resulttuple)
+					except Exception:
+						print "PROBLEM OCCURED in mode: %s, ngram: %s, lenbow: %i" %(mode,str(ngram), lenbow)
 
 		# Run dummy classification
 		#dummy_result_array = self.compare_dummy_classification()
@@ -360,27 +361,30 @@ class Main(object):
 
 # call main with mode
 m = Main(True, "frog lemma pos stem token --debug")
-m.get_activity_tweets('day_output.csv','nb lemma posneg --debug', [1,2], 100, False)
+#m.get_activity_tweets('day_saturday.csv','svm lemma posneg --debug --write', [1,2], 100, True)
 #m.write_begin()
 #m.analysis_classification('nb lemma posneg --debug', [1,2], 100, False)
 #classifiers = ['nb', 'svm']
 #types_preprocess = ['token', 'stem', 'lemma', 'pos']
 
-#['nb token posneg', 'nb token pos1', 'nb token neg1',
-#DONE		'nb stem posneg', 'nb stem pos1', 'nb stem neg1',
-#DONE		'nb lemma posneg', 'nb lemma pos1', 'nb lemma neg1',
-#DONE		'nb pos posneg', 'nb pos pos1', 'nb pos neg1'
-#DONE		'svm token pn-neutral' , 'svm token posneg', 'svm token pos1', 'svm token neg1','svm token freq'
-#DONE		'svm stem pn-neutral' , 'svm stem posneg', 'svm stem pos1', 'svm stem neg1','svm stem freq',
-#DONE		'svm lemma pn-neutral' , 'svm lemma posneg', 'svm lemma pos1', 'svm lemma neg1','svm lemma freq'
-modes = ['svm lemma posneg' ]
-#DONE 'svm pos posneg', 'svm pos pos1', 'svm pos neg1','svm pos freq']
+#Dmodes = ['nb token posneg', 'nb token pos1', 'nb token neg1',
+#D		'nb stem posneg', 'nb stem pos1', 'nb stem neg1',
+#D		'nb lemma posneg', 'nb lemma pos1', 'nb lemma neg1',
+#D		'nb pos posneg', 'nb pos pos1', 'nb pos neg1']
+#modes = ['svm token posneg', 
+modes = ['svm token pos1', 'svm token neg1','svm token freq',
+		'svm token pn-neutral' , 'svm token posneg', 'svm token pos1', 'svm token neg1','svm token freq'
+		'svm stem pn-neutral' , 'svm stem posneg', 'svm stem pos1', 'svm stem neg1','svm stem freq']
+#		'svm lemma pn-neutral' , 'svm lemma posneg', 'svm lemma pos1', 'svm lemma neg1','svm lemma freq',
+# 'svm pos posneg', 'svm pos pos1', 'svm pos neg1','svm pos freq']
 
 #modes = ['nb token posneg']
-#ngramarray = [[1],[1,2], [1,2,3], [2,3]]
-#lenbows = [50, 74, 100, 124, 150, 174, 200]
-modes = ['nb lemma posneg']
-ngramarray = [[1,2]]
-lenbows = [100]
+ngramarray = [[1],[1,2], [1,2,3], [2,3]]
+#modes = ['svm token posneg']
+#ngramarray = [[1,2,3], [2,3]]
+lenbows = [50, 74, 100, 124, 150, 174, 200]
+#modes = ['svm lemma posneg']
+#ngramarray = [[1,2]]
+#lenbows = [100]
 #m.write_begin()
-#m.run_classification_evaluation(modes, ngramarray, lenbows)
+m.run_classification_evaluation(modes, ngramarray, lenbows)

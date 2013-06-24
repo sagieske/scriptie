@@ -2,11 +2,12 @@ import csv
 import gensim
 import nltk
 import re
+from topicextraction_dictionary import TopicExtraction_dictionary
+import operator
 
 class TopicExtraction_LDA(object):
 	# Read file
 	DELIMITER = "\t"
-	data = csv.reader(open("2000test_annotated_v2.csv", 'rU'), delimiter=DELIMITER)
 	class_dict = {"Y": 0, "N": 1, "U": 0}
 
 	short_tweets = []
@@ -20,12 +21,11 @@ class TopicExtraction_LDA(object):
 	posdeleted_postypes = []
 	dictionary_pos = {}
 
-	PORTNUMBER = 1161
 
 	EMOTICONS = ['[=:]-*[()DdPpSsOo(\|)(\$)]']
 	NUMBERS = ['\d+[(\.):]\d+', '\d+']
 
-	TOPICFILE = "day_output_class.csv"
+	TOPICFILE = "day_saturday_class.csv"
 	all_tweets = {}
 
 	def __init__(self, column_tweet, column_class):
@@ -39,14 +39,46 @@ class TopicExtraction_LDA(object):
 		for i, row in enumerate(data):
 			if (row[column_class] == '0'):
 				self.all_tweets[i] = row[column_tweet]
+		print "INIT DONE"
+
 
 	def gensim_test(self):
+
+		topiclogObject = TopicExtraction_dictionary("","day_saturday_class.csv", "day_friday_class.csv")
+		
+		f = open('loglikelihood.txt','w')
+		topWordsDict = topiclogObject.get_top_likelihood(topiclogObject.loglikelihood, 500)
+		
+		topwordsTOFILE = sorted(topWordsDict.iteritems(), key=operator.itemgetter(1), reverse=True)
+		heading = "TOTAL words in corpus: " +str(sum(topiclogObject.corpus.values())) +".\nTOTAL words in reference: " +str(sum(topiclogObject.referencecorpus.values())) +"\nTOTAL messages of corpus: " + str(len(topiclogObject.corpus))  +"\nTOTAL messages of reference corpus: " + str(len(topiclogObject.referencecorpus))  + "-"*40  + "\nWORD".ljust(20) + " LLR".ljust(10) +  "CORPUS".ljust(10) + "REFERENCE".ljust(10) + "\n"
+
+		f.write(heading)
+		for item in topwordsTOFILE:
+			llr_str = "%.4f" %item[1]
+			string = item[0].encode("utf-8").ljust(20) + llr_str.ljust(10) + str(topiclogObject.corpus[item[0]]).ljust(10) + str(topiclogObject.referencecorpus.get(item[0],0)).ljust(10) + "\n"
+			f.write(string)
+		f.close
+		print "JAHO"
+
+
+		topWords = topWordsDict.keys()
 		tokenarray = []		
 		for index in self.all_tweets:
 			tweet_ascii = filter(lambda x: ord(x) < 128, self.all_tweets[index])
-			cleaned_tweet = self.remove_stopwords(tweet_ascii.lower())
-			tokenitem = nltk.word_tokenize(cleaned_tweet)
-			tokenarray.append(tokenitem)
+			#cleaned_tweet = self.remove_stopwords(tweet_ascii.lower())
+			#tokenitem = nltk.word_tokenize(cleaned_tweet)
+			tokenitem = nltk.word_tokenize(tweet_ascii)
+			new_tokenitem = []
+			for token in tokenitem:
+				if token in topWords:
+					new_tokenitem.append(token)
+
+			#if ' naar ' in cleaned_tweet:
+			#	index_nr = tokenitem.index('naar')
+			#	print self.all_tweets[index]
+			#	print ' '.join(tokenitem[index_nr:index_nr+2])
+
+			tokenarray.append(new_tokenitem)
 
 		#"""
 		dictionary = gensim.corpora.Dictionary(tokenarray)
@@ -79,9 +111,6 @@ class TopicExtraction_LDA(object):
 
 	def remove_stopwords(self,sentence):
 		""" Removes stop words in sentences. Returns substituted sentence """
-		"""
-		wordlist = ['[Vv]anavond','[Ii]k', '[Jj]ij', '[Hh]ij', '[Ww]ij', '[Zz]ij', '[Jj]ullie','[Mm]ij', '[Mm]e', '[Jj]e', '[Zz]e', '[Ww]e', '[Ww]eer', '[Ll]ekker', '[Mm]aar', '[Ee]ens', '[Dd]e', '[Hh]et', '[Ee]en', '[Dd]an', '[Dd]aarom', '[Ww]aarom', '[Dd]us', '[Dd]at', '[Ff]f', '[Ww]at', '[eE]even', '[Dd]enk', '[Ee]ven', '[=:]-*[()DdPpSsOo(\|)(\$)]', '\d+[(\.):]\d+', '\d+', '[Ll]ekker']
-		"""
 		wordlist = []
 
 		pattern_time = re.compile('vanavond|morgen|vandaag|vanmiddag|gister|gisteren|eerst|daarna')
@@ -92,6 +121,7 @@ class TopicExtraction_LDA(object):
 		sentence = re.sub("\W", " ", sentence)
 
 		wordlist += self.STOPWORD_FILE + self.NUMBERS + self.EMOTICONS
+
 		for x in wordlist:
 			sentence = re.sub(' '+x+' ',' ', sentence)
 			sentence = re.sub('\A'+x+' ',' ', sentence)
@@ -101,11 +131,8 @@ class TopicExtraction_LDA(object):
 		sentence = re.sub('ha(ha)+',' ', sentence)
 
 		# Delete 'links'
-		#sentence = re.sub('(http://)(.*?)[(.com)(.nl)]',' ', sentence)
-		#r = re.compile(r"([(http:)])(\w+)\b")
-		#sentence = r.sub(' ', sentence)
-
-
+		r = re.compile(r"[(http://)www.][^ ]*")
+		sentence = r.sub(' ', sentence)
 
 		return sentence
 
@@ -116,9 +143,25 @@ class TopicExtraction_LDA(object):
 			word = re.sub('\n','', line)
 			array.append( word )
 		self.STOPWORD_FILE = array
+
+	def tryout(self):
+		naartweets = []
+		for key in self.all_tweets:
+			if 'naar' in self.all_tweets[key]:
+				naartweets.append(self.all_tweets[key])
+
+		for item in naartweets:
+			tokens = nltk.word_tokenize(item)
+			for index, word in enumerate(tokens):
+				if word == 'naar':
+					print tokens[index:index+4]
+					print item
+		print len(naartweets)
+
 		
 
 
 
 topicEX = TopicExtraction_LDA(3,5)
 topicEX.gensim_test()
+#topicEX.tryout()

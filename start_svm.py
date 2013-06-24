@@ -7,6 +7,9 @@ from sklearn import metrics
 import numpy as np
 import helpers
 
+#import threading
+
+
 
 
 class Start_SVM(object):
@@ -32,13 +35,13 @@ class Start_SVM(object):
 		self.mode = mode
 		
 
-	def start_svm_evaluation(self, mode, minborder, maxborder, lenbow):
+	def start_svm_evaluation(self, mode, minborder, maxborder, lenbow, tuplebows):
 		""" Start classification training of SVM"""
-
 		self.scaler = None	# Reset scaler
+		posbow, negbow = tuplebows
 
 		# Create data (classes, vectors)
-		self.train_tweetclasses, self.train_vectors = self.svm_create_traintestdata(self.pr_array)
+		self.train_tweetclasses, self.train_vectors = self.svm_create_traintestdata(self.pr_array, posbow, negbow)
 		# Run SVM		
 		results = self.run_svm_evaluation(self.train_vectors, np.array(self.train_tweetclasses), self.CROSS_VALIDATION)
 
@@ -91,11 +94,14 @@ class Start_SVM(object):
 		f1_scores = []
 
 		for traincv, testcv in cv:
+			# TODO: MULTITHREADING?
+			(f1_score, gamma1, c) = self.cross_validation_thread(param_grid, score_func, inputdata[traincv], outputdata[traincv], inputdata[testcv], outputdata[testcv])
+			f1_scores.append(f1_score)
+			"""
 			clf_cv = GridSearchCV(SVC(), param_grid, score_func=score_func,  n_jobs=-1 )
 			clf_cv.fit(inputdata[traincv], outputdata[traincv])
 
 			y_pred_cv = clf_cv.predict(inputdata[testcv])
-			#tuples = metrics.precision_recall_fscore_support(test_classes_cv, y_pred_cv)
 
 			f1 = metrics.f1_score(outputdata[testcv], y_pred_cv, pos_label=0)
 			f1_scores.append(f1)
@@ -103,6 +109,7 @@ class Start_SVM(object):
 			dict_param = clf_cv.best_params_
 			gamma1 = dict_param['gamma']
 			c = dict_param['C']
+			"""
 		
 		#TODO: NEEDED? self.classifier = clf_cv
 		print "score average: %s" + str(np.mean(f1_scores))
@@ -113,19 +120,31 @@ class Start_SVM(object):
 
 		return (tuples, gamma1, c)
 
+	def cross_validation_thread(self, param_grid, score_func, inputdata_train, outputdata_train, inputdata_test, outputdata_test):
+		""" Fitting of classifier used for cross validation """
+		clf_cv = GridSearchCV(SVC(), param_grid, score_func=score_func,  n_jobs=-1 )
+		clf_cv.fit(inputdata_train, outputdata_train)
+		y_pred_cv = clf_cv.predict(inputdata_test)
 
-	def svm_create_traintestdata(self, array):
+		f1 = metrics.f1_score(outputdata_test, y_pred_cv, pos_label=0)
+		dict_param = clf_cv.best_params_
+		gamma1 = dict_param['gamma']
+		c = dict_param['C']	
+
+		return(f1, gamma1, c)
+
+	def svm_create_traintestdata(self, array, posbow, negbow):
 		""" creates dataset needed for training/testing of SVM"""
 		class_set = []
 		tweetarray = []
 		tweetarray = array
 		class_set = self.tweetclass.values()
 
-		X_scaled = self.svm_create_vectorarray(tweetarray, self.scaler)
+		X_scaled = self.svm_create_vectorarray(tweetarray, posbow, negbow, self.scaler)
 
 		return (class_set, X_scaled)		
 
-	def svm_create_vectorarray(self, array, scaler):
+	def svm_create_vectorarray(self, array, posbow, negbow, scaler):
 		""" Create vector array for classification, scale appropriate"""
 		vecformat_array = []
 		for tweet in array:
@@ -140,7 +159,7 @@ class Start_SVM(object):
 			if ('neg1' in self.mode):
 				vec =  self.tweet_to_vector(tweet, self.negbow, True)
 			if ('freq' in self.mode):
-				totalbow = dict(self.osbow.items() + self.negbow.items())
+				totalbow = dict(self.posbow.items() + self.negbow.items())
 				vec =  self.tweet_to_vector(tweet, totalbow, False)
 
 			vecformat_array.append(vec)
