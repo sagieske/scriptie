@@ -22,7 +22,7 @@ class TopicExtraction(object):
 	"""
 	# Read file
 	DELIMITER = "\t"
-	TOPICFILE = "2000test_annotated_v3_class.csv"
+	TOPICFILE = "2000test_annotated_activityextraction.csv"
 	class_dict = {"Y": 0, "N": 1, "U": 1}
 
 	short_tweets = []
@@ -36,7 +36,7 @@ class TopicExtraction(object):
 	tweetpos_tokenstypes = []
 	dictionary_pos = {}
 	lemmatweets = []
-	PORTNUMBER = 1122
+	PORTNUMBER = 1200
 
 	EMOTICONS = ['[=:]-*[()DdPpSsOo(\|)(\$)]']
 	EMOTICONS_2 = ['\(.\)']
@@ -47,13 +47,14 @@ class TopicExtraction(object):
 		print "** Initialize.."
 		self.debug = debug
 		self.load_stopword_file()
+		self.startcolumn = 5
 		data = csv.reader(open(self.TOPICFILE, 'rU'), delimiter=self.DELIMITER)
 		for i, row in enumerate(data):
 			if i == 0:
 				pass
-			if (row[7] == '0'):
+			if (row[self.startcolumn] == '0'):
 				tweet_enc = self.remove_accents(row[3])
-				substituted = re.sub(r'\.\.+\s', r' ', tweet_enc)
+				substituted = re.sub(r'\.\.+', r'.', tweet_enc)
 				substituted = self.remove_stopwords(substituted)
 				self.tweets.append(substituted)
 		self.dictionary_pos = defaultdict(list)
@@ -66,7 +67,7 @@ class TopicExtraction(object):
 
 	def create_wordpostuples(self, array):
 		""" Create tokens and POS tags for tweets """
-		filename = self.TOPICFILE.split()[0]
+		filename = self.TOPICFILE.split('.')[0]
 		wordpos_filename = filename + "_wordpos.txt"
 
 		readfromfile = self.debug
@@ -121,6 +122,7 @@ class TopicExtraction(object):
 					pass
 				else:
 					tuple_pos = (word,pos)
+					#tuple_pos = (lemma,pos)
 					tuples_tweet.append(tuple_pos)
 					#lemma_tweet.append(lemma)
 
@@ -163,15 +165,13 @@ class TopicExtraction(object):
 		for corpusindex, tuplekey in enumerate(corpus):
 			for tuplekeyindex,item in enumerate(tuplekey):
 				if (tuplekeyindex < len(tuplekey)-1):
-					if tuplekey[tuplekeyindex] == tuplekey[tuplekeyindex+1]:
+					if (tuplekey[tuplekeyindex] == tuplekey[tuplekeyindex+1] and (not 'N' in tuplekey[tuplekeyindex] or not 'WW' in tuplekey[tuplekeyindex])):
 						deletekeys.append(tuplekey)
-						#print "DEL"
-						#print tuplekey
 
 		for item in deletekeys:
 			corpus.pop(item, None)
 
-		corpus.update((x, y*ngramsize*ngramsize) for x, y in corpus.items())
+		corpus.update((x, y*ngramsize*ngramsize*ngramsize) for x, y in corpus.items())
 
 		return corpus
 
@@ -190,21 +190,68 @@ class TopicExtraction(object):
 			corpus[tupleItem] = corpus.get(tupleItem, 0) +1
 		return corpus
 
-	def print_out_version(self, tweet, postweet):
-
+	def get_activities(self, tweet, postweet):
+		""" Get activity according to most frequent POS structure in tweet."""
 		flat_postweet = " ".join(postweet)
 		sortedarray = sorted(self.corpus.iteritems(), key=operator.itemgetter(1), reverse=True)
 		# Ga alle opties af, van best naar slechts
 		for (item, freq) in sortedarray:
 			# Flatten tuple
-			flat_tuple = " ".join(list(item))
+			tuplelist = list(item)
+			flat_tuple = " ".join(tuplelist)
 			# Check if tuple in postweet, If so create short tweet and return
 			if flat_tuple in flat_postweet:
 				splittweet = tweet.split()
 				# Get tweet only consisting of this pos.
 				startindex = self.get_startindex_sublist(list(item), postweet)
-				print " ".join(splittweet[startindex:startindex+len(item)])
-				break
+	
+				newtweet = splittweet[startindex:startindex+len(item)]
+				# delete vanavond from sentence
+				"""
+				if 'vanavond' in newtweet:
+					indexvanavond = newtweet.index('vanavond')
+					del newtweet[indexvanavond]
+					# catch error
+					try:
+						del tuplelist[indexvanavond]
+					except:
+						pass
+
+					flat_tuple = " ".join(tuplelist)	
+				"""				
+
+				return " ".join(newtweet), flat_tuple
+
+		return tweet, postweet
+
+	def create_totalcorpus(self, ngramarray, array):
+		""" Create corpus for all specified ngrams"""
+		self.corpus = {}
+		for ngram in ngramarray:
+			self.corpus.update(self.create_pos_corpus(ngram,m.short_pos))
+			self.corpus[('BW(vanavond)', u'VZ(init)')] = 0.0
+			self.corpus[('BW(vanavond)', u'ADJ(vrij,basis,zonder)')] = 0.0
+		print sorted(self.corpus.iteritems(), key=operator.itemgetter(1), reverse=True)[:10]
+
+	def run_activity_extraction(self, ngramarray, array):
+		""" Starts the extraction of activities """
+		self.create_totalcorpus(ngramarray, array)
+		activities = []
+		posactivities = []
+		test = []
+		for index,item in enumerate(self.short_tweets):
+			activity, posactivity = self.get_activities(self.short_tweets[index], self.short_pos[index])
+			activities.append(activity)
+			posactivities.append(posactivity)
+			test.append([activity, posactivity])
+
+		# Write to file
+		filename_topic = self.TOPICFILE.split('.')[0]
+		activity_file = filename_topic + "_activities.csv"
+		posactivity_file = filename_topic + "_activities_pos.csv"
+
+		helpers.write_classification_to_tweetfile(test,1, self.startcolumn+1, self.TOPICFILE, activity_file, True)
+
 
 	def get_startindex_sublist(self, sublist, wholelist):
 		""" Get start index of sublist in wholelist and return. No index found then return -1 """		
@@ -239,7 +286,6 @@ class TopicExtraction(object):
 	def deletepos(self, word, pos):
 		""" Tests if POS tag belongs to list to be removed. Returns Boolean"""
 		# POS tags to be removed	
-		#poslist_delete = ['TW(rang', 'TSW', 'BW', 'VNW', 'WW(vd', 'LID', 'VG', 'ADJ(nom', 'ADJ(dial)', 'comp', 'SPEC', 'WW(od', 'sup', 'ADJ(postnom']	
 		# VG: voegwoorden, TW: rang telwoorden, ADJ:adjectief, TSW: tussenwerpsel, LID: lidwoord, 	VNW: voornaamwoord
 		# prenom: placed before noun, sup: superlatief, hoogte graag van verbuiging, comp: comperatief
 		poslist_delete = ['TW(rang', 'ADJ(prenom, sup', 'TSW', 'BW', 'LID', 'VG', 'comp', 'VNW(onbep']
@@ -297,22 +343,46 @@ class TopicExtraction(object):
 
 		return sentence
 
-	def get_tweetpart(self, word, string, pos_of_string):
+	def get_tweetpart(self, word, inputstring, pos_of_string):
 		"""" Get substring of tweet containing word split with delimiter. Return substring"""
 		delimiter = '\.\s|\,|\?|!|;'
-		short =re.split(delimiter,string)
+		# remove last dot in string and corresponding LET() in pos_of_string
+		string = re.sub("\.$", "", inputstring)
+		if inputstring != string:
+			del pos_of_string[len(pos_of_string)-1]
+
+
+
+		# split string and pos in same way
+		short =re.split(delimiter,inputstring)
 		posshort = self.split_pos(short, pos_of_string)
 
+
+		# get all indices if vanavond in part of splitted string
 		listindex = [item for item in range(len(short)) if 'vanavond' in short[item].lower()]
 
-		string = ''	
+		# Update string and poslist
+		newstring = ''	
 		poslist = []
 		test = []	
 		for index in listindex:
 			shortarray =short[index].split()
-			string += " ".join(shortarray)
+			newstring += " ".join(shortarray)
 			poslist += posshort[index]
-		return (string, poslist)
+
+
+			if 'vanavond' in shortarray:
+				indexvanavond = shortarray.index('vanavond')
+				newstring = re.sub("vanavond", "", newstring)
+				# catch error
+				try:
+					del poslist[indexvanavond]
+				except:
+					pass
+
+		return (newstring, poslist)
+
+
 
 	def split_pos(self, splitted_array, pos_of_string):	
 		""" Split POS array in same way as splitted array """
@@ -326,7 +396,6 @@ class TopicExtraction(object):
 			splitted_pos.append(positem)
 		return splitted_pos
 			
-
 
 	def write_dict(self): 
 		""" Write dictionary to file for analysis"""
@@ -354,34 +423,36 @@ class TopicExtraction(object):
 			c.writerow(row2)
 
 	def load_stopword_file(self):
-		stopword_file = open( "dutch-stop-words.txt", "r" )
+		stopword_file = open( "dutch-stop-words_v2.txt", "r" )
 		array = []
 		for line in stopword_file:
 			word = re.sub('\n','', line)
 			array.append( word )
 		self.STOPWORD_FILE = array
 
-	def create_totalcorpus(self, ngramarray, array):
-		""" Create corpus for all specified ngrams"""
-		self.corpus = {}
-		for ngram in ngramarray:
-			self.corpus.update(self.create_pos_corpus(ngram,m.short_pos))
-			self.corpus[('BW(vanavond)', u'VZ(init)')] = 0.0
-		print sorted(self.corpus.iteritems(), key=operator.itemgetter(1), reverse=True)[:10]
-		for index,item in enumerate(self.short_tweets):
-			self.print_out_version(self.short_tweets[index], self.short_pos[index])
-	
 
-m = TopicExtraction(True)
+
+	
+# True: debug, False: FROG
+m = TopicExtraction(False)
 
 m.create_wordpostuples(m.tweets)
-
-#m.read_from_file()
 m.begin_ngram_dictionary(1)
 m.write_dict()
 m.get_unzippedtuples_array(m.tuples)
 m.tweetparts()
 m.write_tofile(m.short_tweets)
-m.create_totalcorpus([2,3,4], m.short_pos) 
+m.run_activity_extraction([2,3,4], m.short_pos) 
 
-#m.gensim_test()
+"""
+
+0: incorrect
+0.25: woord teveel
+0.5: woord te weinig
+0.75: net te vaag wegens tweet of meerdere activiteiten en mist er 1
+1:correct
+"""
+
+
+
+
