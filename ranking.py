@@ -1,4 +1,5 @@
 import operator
+import csv
 
 class Ranking(object):
 	"""
@@ -16,20 +17,66 @@ class Ranking(object):
 		Dictionary used for obtaining frequency of summaries.			
 	"""
 
-	tweets = []
-	summaries = []
-	sumdict = {}
+	activities = []
+	activity_frequency = {}
 
-	def __init__(self, tweets, summaries):
-		"""	Initialize tweets for use"""
-		self.tweets = tweets
-  		self.summaries = summaries
+	ACTIVITYFILE = "2000test_annotated_activityextraction_activities_correctness.csv"
+	DELIMITER = "\t"
 
+	def __init__(self):
+		""" Initializes tweet and class sets """
+		print "** Initialize.."
+		self.startcolumn = 6
+		data = csv.reader(open(self.ACTIVITYFILE, 'rU'), delimiter=self.DELIMITER)
+		for i, row in enumerate(data):
+			if i == 0:
+				pass
+			if (row[self.startcolumn] != ''):
+				self.activities.append(row[self.startcolumn])
 
-	def create_dictionary(self):
-		"""Create dictionary for summary and frequencies"""
-		for item in self.summaries:
-			self.sumdict[item] = self.sumdict.get(item,0) +1
+		ngrams = [1,2]
+		for ngram in ngrams:
+			dictionary_ngram = self.begin_ngram_dictionary(ngram)
+			self.activity_frequency.update(dictionary_ngram)
+		
+		size = float(len(self.activities))		
+		#self.activity_frequency.update((x, y/size) for x, y in self.activity_frequency.items())
+		sorted_activities = sorted(self.activity_frequency.iteritems(), key=operator.itemgetter(1), reverse=True)[:40]
+
+		for index, (activity, freq) in enumerate(sorted_activities):
+			stringindex = "%i" %index
+			stringactivity = "%s" %str(activity)
+			stringfreq = "%.2f" %freq
+			string = stringindex.ljust(4) + stringactivity.ljust(30) + stringfreq
+			print string
+			#print "%i:\t %s \t %.2f" %(index, activity, freq)
+
+	def begin_ngram_dictionary(self, ngramsize):
+		""" Update dictionary of POS tags with ngramsize
+		"""
+		corpus = {}
+		for item in self.activities:
+			corpus.update(self.add_to_dictionary(item, ngramsize,corpus))
+
+		if (ngramsize == 1):
+			corpus[('naar',)] = 0.0
+		corpus.update((x, y*ngramsize*ngramsize*ngramsize) for x, y in corpus.items())
+		return corpus
+
+	def add_to_dictionary(self, activitytweet, ngramsize, corpus):
+		"""Create dictionary for n-gram size activities and frequencies"""
+		tokens = activitytweet.split()
+		for index in range(0, len(tokens)-ngramsize+1):
+			# Create tuple
+			tupleItem = (tokens[index],)
+			
+			for i in range(index+1,index+ngramsize):
+				tupleItem = tupleItem + (tokens[i],)
+			
+			# Add ngrams in dictionary with addition
+			corpus[tupleItem] = corpus.get(tupleItem, 0) +1		
+		return corpus
+
 
 	def create_frequencylist(self):
 		"""Sorts dictionary on frequency"""
@@ -55,12 +102,8 @@ class Ranking(object):
 			print popularity + summary + freq
 			
 		
-"""
-TESTING
-tweets = [['test dit test dit'], ['proberen'], ['nog meer tweets testen'], ['nog meer tweets testen']]
-summaries = ['testen', 'uitproberen', 'testen', 'testen', 'no', 'uitproberen', 'la', 'la']
-r = Ranking(tweets, summaries)
-r.create_dictionary()
-test = r.create_frequencylist()
-r.print_popular(4, test)
-"""
+r = Ranking()
+#r.create_dictionary()
+#test = r.create_frequencylist()
+#r.print_popular(4, test)
+
