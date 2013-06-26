@@ -2,6 +2,7 @@ from sklearn import svm
 from sklearn import cross_validation
 from sklearn.grid_search import GridSearchCV
 from sklearn.svm import SVC
+from sklearn.svm import LinearSVC
 from sklearn import preprocessing					# used for scaler
 from sklearn import metrics
 import numpy as np
@@ -35,7 +36,7 @@ class Start_SVM(object):
 		self.mode = mode
 		
 
-	def start_svm_evaluation(self, mode, minborder, maxborder, lenbow, tuplebows):
+	def start_svm_evaluation(self, mode, svmtype, minborder, maxborder, lenbow, tuplebows):
 		""" Start classification training of SVM"""
 		self.scaler = None	# Reset scaler
 		posbow, negbow = tuplebows
@@ -43,7 +44,7 @@ class Start_SVM(object):
 		# Create data (classes, vectors)
 		self.train_tweetclasses, self.train_vectors = self.svm_create_traintestdata(self.pr_array, posbow, negbow)
 		# Run SVM		
-		results = self.run_svm_evaluation(self.train_vectors, np.array(self.train_tweetclasses), self.CROSS_VALIDATION)
+		results = self.run_svm_evaluation(svmtype, self.train_vectors, np.array(self.train_tweetclasses), self.CROSS_VALIDATION)
 
 		return results
 
@@ -65,7 +66,10 @@ class Start_SVM(object):
 		
 		# fit classifier on trainingdata using gamma and c
 		if (not fitclassifier):
-			self.classifier = svm.SVC(gamma=gamma,C=c)
+			if 'ln' in mode:
+				self.classifier = svm.LinearSVC(C=c)
+			if 'rbf' in mode:
+				self.classifier = svm.SVC(gamma=gamma,C=c)
 			self.classifier.fit(np.array(self.train_vectors), self.train_tweetclasses)
 			if '--debug' in mode:
 				self.dump_classifier("classifiertest.txt")
@@ -78,40 +82,29 @@ class Start_SVM(object):
 
 		return y_pred
 		
-	def run_svm_evaluation(self, inputdata, outputdata, k):
+	def run_svm_evaluation(self, svmtype, inputdata, outputdata, k):
 		""" Run SVM on training data to evaluate classifier. Return f1scores, gamma and C"""
 
-
-		# Parameter grid
-		param_grid = [
-		 {'C': np.logspace(1,5,5), 'gamma': np.logspace(-3,0,5), 'kernel': ['rbf']}
-		]
+		if svmtype == 'rbf':
+			# Parameter grid
+			param_grid = [
+			 {'C': np.logspace(1,5,5), 'gamma': np.logspace(-3,0,5), 'kernel': ['rbf']}
+			]
+		if svmtype == 'ln':
+			param_grid =[ {'C': np.logspace(1,5,5)}]
+		
 		score_func = metrics.f1_score
-
 
 		# Cross validation
 		cv = cross_validation.KFold(inputdata.shape[0], n_folds=k, indices=True,shuffle=True)
 		f1_scores = []
 
 		for traincv, testcv in cv:
-			# TODO: MULTITHREADING?
-			(f1_score, gamma1, c) = self.cross_validation_thread(param_grid, score_func, inputdata[traincv], outputdata[traincv], inputdata[testcv], outputdata[testcv])
+
+			# TODO: multithreading of cross validation.
+			(f1_score, gamma1, c) = self.do_cross_validation(param_grid, svmtype, score_func, inputdata[traincv], outputdata[traincv], inputdata[testcv], outputdata[testcv])
 			f1_scores.append(f1_score)
-			"""
-			clf_cv = GridSearchCV(SVC(), param_grid, score_func=score_func,  n_jobs=-1 )
-			clf_cv.fit(inputdata[traincv], outputdata[traincv])
-
-			y_pred_cv = clf_cv.predict(inputdata[testcv])
-
-			f1 = metrics.f1_score(outputdata[testcv], y_pred_cv, pos_label=0)
-			f1_scores.append(f1)
-
-			dict_param = clf_cv.best_params_
-			gamma1 = dict_param['gamma']
-			c = dict_param['C']
-			"""
-		
-		#TODO: NEEDED? self.classifier = clf_cv
+			
 		print "score average: %s" + str(np.mean(f1_scores))
 		print f1_scores
 
@@ -120,18 +113,33 @@ class Start_SVM(object):
 
 		return (tuples, gamma1, c)
 
-	def cross_validation_thread(self, param_grid, score_func, inputdata_train, outputdata_train, inputdata_test, outputdata_test):
+	def do_cross_validation(self, param_grid, svmtype, score_func, inputdata_train, outputdata_train, inputdata_test, outputdata_test):
 		""" Fitting of classifier used for cross validation """
-		clf_cv = GridSearchCV(SVC(), param_grid, score_func=score_func,  n_jobs=-1 )
+
+		if svmtype == 'ln':
+			svm_clf = LinearSVC()
+		if svmtype == 'rbf':
+			svm_clf = SVC()
+		#clf_cv = GridSearchCV(SVC(), param_grid, score_func=score_func,  n_jobs=-1 )
+		#clf_cv = GridSearchCV( LinearSVC(), param_grid, score_func=score_func,  n_jobs=-1 )
+		
+		clf_cv = GridSearchCV(svm_clf, param_grid, score_func=score_func,  n_jobs=-1 )
+
 		clf_cv.fit(inputdata_train, outputdata_train)
 		y_pred_cv = clf_cv.predict(inputdata_test)
 
 		f1 = metrics.f1_score(outputdata_test, y_pred_cv, pos_label=0)
 		dict_param = clf_cv.best_params_
-		gamma1 = dict_param['gamma']
 		c = dict_param['C']	
 
+		if svmtype == 'rbf':
+			gamma1 = dict_param['gamma']
+		else:
+			gamma1 = 0
+
+
 		return(f1, gamma1, c)
+
 
 	def svm_create_traintestdata(self, array, posbow, negbow):
 		""" creates dataset needed for training/testing of SVM"""

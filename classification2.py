@@ -39,7 +39,7 @@ class Main(object):
 	lemmatized_tweets_array = []
 	
 	# File for classification results
-	RESULTFILE = 'results_classification_20juni.csv'
+	RESULTFILE = 'results_classification_26juni_rest.csv'
 
 	TRAININGFILE = "2000test_annotated_v3.csv"
 
@@ -156,12 +156,10 @@ class Main(object):
 		classification_filename = training_filename + "_class.csv"
 		helpers.write_classification_to_tweetfile(prediction,1, 7, self.TRAININGFILE, classification_filename)
 
-
-	def start_svm_evaluation(self, array, mode, ngrambow, minborder, maxborder, nr, tuplebows):
+	def start_svm_evaluation(self, array, mode, svmtype, ngrambow, minborder, maxborder, nr, tuplebows):
 		""" Start SVM classification learning. Return results (resultscores_tuple, gamma1, c)"""
-
 		svmObject = Start_SVM(array, mode, self.tweet_class, True, tuplebows, self.CROSS_VALIDATION)
-		results = svmObject.start_svm_evaluation(mode, minborder, maxborder, nr, tuplebows)
+		results = svmObject.start_svm_evaluation(mode, svmtype, minborder, maxborder, nr, tuplebows)
 		return results
 
 	def start_naivebayes_classification(self, array, mode, ngrambow, minborder, maxborder, nr, tuplebows):
@@ -236,13 +234,13 @@ class Main(object):
 		""" Get processed array according to name """
 		mode = arrayname.split()
 
-		if ( "stem" in mode[1]):
+		if ( "stem" in mode[2]):
 			return self.stemmed_tweets_array
-		if ( "token" in mode[1]):
+		if ( "token" in mode[2]):
 			return self.tokenized_tweets_array
-		if ( "pos" in mode[1]): 
+		if ( "pos" in mode[2]): 
 			return self.pos_tweets_array
-		if ( "lemma" in mode[1]):
+		if ( "lemma" in mode[2]):
 			return self.lemmatized_tweets_array
 		else:
 			return []
@@ -330,25 +328,28 @@ class Main(object):
 		""" Run classifications according to input and write results to file."""
 		begin = time.time()
 
+
 		# Run classifications according to parameters
 		for mode in modes:
 			print "-- RUN NEW MODE: %s.." % mode
 			for ngram in ngramarray:
 				print "-- RUN NEW NGRAM: %s.." % str(ngram)
 				for lenbow in lenbows:
-					try:
-						resulttuple = None
-						array, tuplebow = self.setup_input_classification(mode, ngram, 0, 0, lenbow)
-						if 'svm' in mode:
-							(result, gamma, c) = self.start_svm_evaluation(array, mode, ngram, 0,0, lenbow,tuplebow)
-							resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
+					#try:
+					resulttuple = None
+					array, tuplebow = self.setup_input_classification(mode, ngram, 0, 0, lenbow)
+					if 'svm' in mode:
+						svmtype = mode.split()[1]
+						(result, gamma, c) = self.start_svm_evaluation(array, mode, svmtype, ngram, 0,0, lenbow,tuplebow)
+						resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
+					if 'nb' in mode:
+						(result, gamma, c) = self.start_naivebayes_classification(array,mode, ngram, 0, 0, lenbow, tuplebow)
+						resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
 
-						if 'nb' in mode:
-							(result, gamma, c) = self.start_naivebayes_classification(array,mode, ngram, 0, 0, lenbow, tuplebow)
-							resulttuple = [(mode, gamma, c, ngram, lenbow, result)]
-						self.write_results_to_file(resulttuple)
-					except Exception:
-						print "PROBLEM OCCURED in mode: %s, ngram: %s, lenbow: %i" %(mode,str(ngram), lenbow)
+					#except Exception:
+					#	print "PROBLEM OCCURED in mode: %s, ngram: %s, lenbow: %i" %(mode,str(ngram), lenbow)
+					#	print "A"
+					self.write_results_to_file(resulttuple)
 
 		# Run dummy classification
 		#dummy_result_array = self.compare_dummy_classification()
@@ -364,27 +365,46 @@ m = Main(True, "frog lemma pos stem token --debug")
 #m.get_activity_tweets('day_saturday.csv','svm lemma posneg --debug --write', [1,2], 100, True)
 #m.write_begin()
 #m.analysis_classification('nb lemma posneg --debug', [1,2], 100, False)
-#classifiers = ['nb', 'svm']
-#types_preprocess = ['token', 'stem', 'lemma', 'pos']
 
 #Dmodes = ['nb token posneg', 'nb token pos1', 'nb token neg1',
 #D		'nb stem posneg', 'nb stem pos1', 'nb stem neg1',
 #D		'nb lemma posneg', 'nb lemma pos1', 'nb lemma neg1',
 #D		'nb pos posneg', 'nb pos pos1', 'nb pos neg1']
-#modes = ['svm token posneg', 
-modes = ['svm token pos1', 'svm token neg1','svm token freq',
-		'svm token pn-neutral' , 'svm token posneg', 'svm token pos1', 'svm token neg1','svm token freq'
-		'svm stem pn-neutral' , 'svm stem posneg', 'svm stem pos1', 'svm stem neg1','svm stem freq']
-#		'svm lemma pn-neutral' , 'svm lemma posneg', 'svm lemma pos1', 'svm lemma neg1','svm lemma freq',
-# 'svm pos posneg', 'svm pos pos1', 'svm pos neg1','svm pos freq']
+#modes = ['svm token posneg', 'svm token pos1', 'svm token neg1','svm token freq']
+#DONE		'svm token pn-neutral' , 'svm token posneg', 'svm token pos1', 'svm token neg1','svm token freq'
+#DONE		'svm stem pn-neutral' , 'svm stem posneg', 'svm stem pos1', 'svm stem neg1','svm stem freq',
+#modes= ['svm lemma pn-neutral' , 'svm lemma posneg', 'svm lemma pos1', 'svm lemma neg1','svm lemma freq',
+#		'svm pos posneg', 'svm pos pos1', 'svm pos neg1','svm pos freq']
+#DONE ['svm token freq', 'svm stem freq', 'svm lemma freq','svm pos freq']
+#TODO: modes = ['svm lemma pn-neutral', svm pos pn-neutral
 
-#modes = ['nb token posneg']
+"""
+ALL POSSIBLE MODES:
+modes = {svm ln, svm rb} x {token, stem, lemma, pos} x{posneg, pos1, neg1, freq} x {[1], [1,2], [1,2,3], [2,3]} x {50, 74, 100, 124, 150, 174, 200}
+	+ {nb} x {token, stem, lemma, pos} x {posneg, pos1, neg1}  x {[1], [1,2], [1,2,3], [2,3]} x {50, 74, 100, 124, 150, 174, 200}
+	= 896+336
+
+['svm token posneg', 'svm token pos1', 'svm token neg1','svm token freq',
+		 'svm stem posneg', 'svm stem pos1', 'svm stem neg1','svm stem freq',
+		'svm lemma posneg', 'svm lemma pos1', 'svm lemma neg1','svm lemma freq',
+		'svm pos posneg', 'svm pos pos1', 'svm pos neg1','svm pos freq']
+"""
+modes= ['svm rbf stem posneg', 'svm rbf stem pos1', 'svm rbf stem neg1']
 ngramarray = [[1],[1,2], [1,2,3], [2,3]]
-#modes = ['svm token posneg']
-#ngramarray = [[1,2,3], [2,3]]
 lenbows = [50, 74, 100, 124, 150, 174, 200]
-#modes = ['svm lemma posneg']
-#ngramarray = [[1,2]]
-#lenbows = [100]
-#m.write_begin()
 m.run_classification_evaluation(modes, ngramarray, lenbows)
+#
+
+modes = [ 'svm rbf token posneg']
+ngramarray = [[1,2,3]]
+lenbow = [150,174,200]
+m.run_classification_evaluation(modes, ngramarray, lenbows)
+#
+ngramarray = [[2,3]]
+lenbows = [50, 74, 100, 124, 150, 174, 200]
+m.run_classification_evaluation(modes, ngramarray, lenbows)
+#m.write_begin()
+modes = ['svm ln pos posneg', 'svm ln pos pos1', 'svm ln pos neg1','svm lnpos freq']
+ngramarray = [[1],[1,2], [1,2,3], [2,3]]
+m.run_classification_evaluation(modes, ngramarray, lenbows)
+
